@@ -1,85 +1,218 @@
-// BrainView.swift – Interaktive 3D-Gehirn-Visualisierung mit SceneKit
+//
+//  BrainView.swift
+//  vb_ios
 
 import SwiftUI
-import SceneKit
+import SceneKit   // SCNVector3.x / .y
+
+// MARK: – Design Tokens (module-wide)
+
+extension Color {
+    static let vbVoid       = Color(red: 0.024, green: 0.012, blue: 0.098)  // #06031a
+    static let vbDeep       = Color(red: 0.047, green: 0.031, blue: 0.141)  // #0c0824
+    static let vbNebula     = Color(red: 0.086, green: 0.043, blue: 0.188)  // #160b30
+    static let vbRose       = Color(red: 1.000, green: 0.561, blue: 0.702)  // #ff8fb3
+    static let vbPink       = Color(red: 1.000, green: 0.435, blue: 0.639)  // #ff6fa3
+    static let vbMagenta    = Color(red: 1.000, green: 0.353, blue: 0.627)  // #ff5aa0
+    static let vbLavender   = Color(red: 0.788, green: 0.643, blue: 1.000)  // #c9a4ff
+    static let vbLilac      = Color(red: 0.710, green: 0.553, blue: 1.000)  // #b58dff
+    static let vbOrchid     = Color(red: 0.847, green: 0.537, blue: 1.000)  // #d889ff
+    static let vbPeriwinkle = Color(red: 0.639, green: 0.659, blue: 1.000)  // #a3a8ff
+    static let vbStardust   = Color(red: 1.000, green: 0.941, blue: 0.969)  // #fff0f7
+    static let vbFg1        = Color(red: 0.984, green: 0.953, blue: 1.000)  // #fbf3ff
+    static let vbFg2        = Color(red: 0.831, green: 0.761, blue: 0.925)  // #d4c2ec
+    static let vbFg3        = Color(red: 0.592, green: 0.518, blue: 0.722)  // #9784b8
+    static let vbFg4        = Color(red: 0.420, green: 0.353, blue: 0.529)  // #6b5a87
+    static let vbSuccess    = Color(red: 0.533, green: 0.902, blue: 0.765)  // #88e6c3
+    static let vbDanger     = Color(red: 1.000, green: 0.478, blue: 0.541)  // #ff7a8a
+}
+
+// MARK: – Pearl (brand mark, shared across screens)
+
+struct PearlView: View {
+    let size: CGFloat
+    @State private var pulse = false
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.vbPink.opacity(0.55), Color.vbLavender.opacity(0.25), .clear],
+                        center: .center, startRadius: 0, endRadius: size * 0.62
+                    )
+                )
+                .frame(width: size * 1.3, height: size * 1.3)
+                .blur(radius: size * 0.15)
+
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            .vbStardust,
+                            Color(red: 1, green: 0.769, blue: 0.863),
+                            .vbRose,
+                            .vbLavender,
+                            Color(red: 0.353, green: 0.176, blue: 0.639)
+                        ],
+                        center: UnitPoint(x: 0.35, y: 0.32),
+                        startRadius: 0, endRadius: size * 0.5
+                    )
+                )
+                .frame(width: size, height: size)
+                .scaleEffect(pulse ? 1.04 : 1.0)
+                .shadow(color: .vbPink.opacity(0.45), radius: size * 0.2)
+
+            Ellipse()
+                .fill(Color.white.opacity(0.65))
+                .frame(width: size * 0.26, height: size * 0.30)
+                .offset(x: -size * 0.12, y: -size * 0.14)
+                .blur(radius: size * 0.04)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 3.6).repeatForever(autoreverses: true)) {
+                pulse = true
+            }
+        }
+    }
+}
+
+// MARK: – Cosmic Background
+
+private struct CosmicBackgroundView: View {
+    var body: some View {
+        ZStack {
+            Color.vbVoid
+            RadialGradient(
+                colors: [Color.vbLavender.opacity(0.18), .clear],
+                center: UnitPoint(x: 0.30, y: 0.20),
+                startRadius: 0, endRadius: 300
+            )
+            RadialGradient(
+                colors: [Color.vbPink.opacity(0.14), .clear],
+                center: UnitPoint(x: 0.75, y: 0.80),
+                startRadius: 0, endRadius: 280
+            )
+            StarfieldView()
+        }
+        .ignoresSafeArea()
+    }
+}
+
+private struct StarfieldView: View {
+    private static let stars: [(CGFloat, CGFloat, CGFloat, Double)] =
+        (0..<60).map { i in
+            let x = CGFloat((i * 73) % 390) / 390.0
+            let y = CGFloat((i * 137) % 844) / 844.0
+            let r = CGFloat(0.4 + Double((i * 13) % 10) / 18.0)
+            return (x, y, r, Double(i) * 0.37)
+        }
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.08)) { tl in
+            let t = tl.date.timeIntervalSinceReferenceDate
+            Canvas { ctx, size in
+                for (nx, ny, r, phase) in Self.stars {
+                    let alpha = 0.08 + 0.22 * (0.5 + 0.5 * sin(t * 0.65 + phase))
+                    ctx.fill(
+                        Path(ellipseIn: CGRect(
+                            x: nx * size.width  - r,
+                            y: ny * size.height - r,
+                            width: r * 2, height: r * 2
+                        )),
+                        with: .color(.white.opacity(alpha))
+                    )
+                }
+            }
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
+}
+
+// MARK: – Brain View (Main)
 
 struct BrainView: View {
     @EnvironmentObject var viewModel: AppViewModel
-
     @State private var selectedNoteID: String?
-    @State private var showNoteSheet  = false
+    @State private var showNoteSheet   = false
+    @State private var longPressNodeID: String?
+    @State private var showLongPress   = false
 
     var body: some View {
         ZStack(alignment: .top) {
+            CosmicBackgroundView()
 
-            Color.black.ignoresSafeArea()
+            if viewModel.graphModel.nodes.isEmpty && !viewModel.graphModel.isLoading {
+                emptyState
+            } else {
+                BrainGraphView(
+                    nodes: viewModel.graphModel.nodes,
+                    edges: viewModel.graphModel.edges,
+                    selectedNodeID: selectedNoteID,
+                    onNodeTapped: { id in
+                        selectedNoteID = id
+                        showNoteSheet  = true
+                    },
+                    onNodeLongPressed: { id in
+                        longPressNodeID = id
+                        selectedNoteID  = id
+                        withAnimation(.spring(duration: 0.35)) { showLongPress = true }
+                    }
+                )
+                .ignoresSafeArea()
+            }
 
-            // SceneKit-Szene als Vollbild-Hintergrund
-            BrainSceneView(
-                nodes: viewModel.graphModel.nodes,
-                edges: viewModel.graphModel.edges,
-                onNodeTapped: { id in
-                    selectedNoteID = id
-                    showNoteSheet  = true
-                }
-            )
-            .ignoresSafeArea()
-
-            // Lade-Overlay
             if viewModel.graphModel.isLoading {
-                LoadingOverlayView(progress: viewModel.graphModel.loadingProgress)
+                LoadingUniverseView(progress: viewModel.graphModel.loadingProgress)
+                    .ignoresSafeArea()
+                    .zIndex(50)
             }
 
-            // Fehler-Banner
             if let err = viewModel.graphModel.errorMessage {
-                ErrorBannerView(message: err) {
-                    Task { await viewModel.loadNotes() }
-                }
-                .padding(.top, 60)
+                ErrorBannerView(message: err) { Task { await viewModel.loadNotes() } }
+                    .padding(.top, 60)
+                    .zIndex(30)
             }
 
-            // Toolbar
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Virtual Brain")
-                        .font(.headline.bold())
-                        .foregroundColor(.white)
-                    Text("\(viewModel.graphModel.nodes.count) Notizen · \(viewModel.graphModel.edges.count) Links")
-                        .font(.caption2)
-                        .foregroundColor(.gray)
-                }
-                Spacer()
-
-                // Neu laden
-                Button {
-                    Task { await viewModel.loadNotes() }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                        .foregroundColor(.white)
-                        .padding(8)
-                        .background(Color.white.opacity(0.1))
-                        .clipShape(Circle())
-                }
-                .disabled(viewModel.graphModel.isLoading)
-
-                // Abmelden
-                Button {
-                    viewModel.logout()
-                } label: {
-                    Image(systemName: "person.slash")
-                        .foregroundColor(.red.opacity(0.8))
-                        .padding(8)
-                        .background(Color.white.opacity(0.1))
-                        .clipShape(Circle())
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 56)
+            ToolbarPillView(
+                noteCount: viewModel.graphModel.nodes.count,
+                linkCount: viewModel.graphModel.edges.count,
+                isLoading: viewModel.graphModel.isLoading,
+                onRefresh: { Task { await viewModel.loadNotes() } },
+                onLogout:  { viewModel.logout() }
+            )
+            .zIndex(20)
         }
+        .overlay {
+            if showLongPress,
+               let nodeID = longPressNodeID,
+               let node   = viewModel.graphModel.nodes.first(where: { $0.id == nodeID }) {
+                let degree = viewModel.graphModel.edges.filter {
+                    $0.sourceID == nodeID || $0.targetID == nodeID
+                }.count
+                LongPressMenuView(
+                    node: node,
+                    connectedCount: degree,
+                    onOpen: {
+                        withAnimation(.spring(duration: 0.28)) { showLongPress = false }
+                        showNoteSheet = true
+                    },
+                    onCopyWikilink: {
+                        UIPasteboard.general.string = "[[\(node.title)]]"
+                        withAnimation(.spring(duration: 0.28)) { showLongPress = false }
+                    },
+                    onDismiss: {
+                        withAnimation(.spring(duration: 0.35)) { showLongPress = false }
+                    }
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(duration: 0.35), value: showLongPress)
         .sheet(isPresented: $showNoteSheet) {
             if let id = selectedNoteID {
-                NoteView(noteID: id)
-                    .environmentObject(viewModel)
+                NoteView(noteID: id).environmentObject(viewModel)
             }
         }
         .task {
@@ -88,40 +221,462 @@ struct BrainView: View {
             }
         }
     }
+
+    private var emptyState: some View {
+        VStack(spacing: 20) {
+            PearlView(size: 72)
+            Text("Tippe ↺ um den Vault zu laden")
+                .font(.system(size: 16, design: .serif))
+                .italic()
+                .foregroundColor(.vbFg3)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
 }
 
-// MARK: – Lade-Overlay
+// MARK: – Toolbar Pill
 
-private struct LoadingOverlayView: View {
-    let progress: Double
+private struct ToolbarPillView: View {
+    let noteCount: Int
+    let linkCount: Int
+    let isLoading: Bool
+    let onRefresh: () -> Void
+    let onLogout:  () -> Void
 
     var body: some View {
-        ZStack {
-            Color.black.opacity(0.75).ignoresSafeArea()
-            VStack(spacing: 22) {
-                Image(systemName: "brain.head.profile")
-                    .font(.system(size: 52, weight: .ultraLight))
-                    .foregroundStyle(LinearGradient(
-                        colors: [.purple, .cyan], startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .symbolEffect(.pulse)
-                Text("Lade Vault …")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                ProgressView(value: progress)
-                    .tint(.purple)
-                    .frame(width: 220)
-                Text("\(Int(progress * 100)) %")
-                    .font(.caption)
-                    .foregroundColor(.gray)
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Virtual Brain")
+                    .font(.system(size: 18, weight: .semibold, design: .serif))
+                    .foregroundColor(.vbFg1)
+                Text("\(noteCount) Notizen · \(linkCount) Links")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.vbFg3)
+                    .monospacedDigit()
             }
-            .padding(36)
-            .background(.ultraThinMaterial)
-            .cornerRadius(24)
+            Spacer()
+            pillButton(icon: "arrow.clockwise", danger: false, action: onRefresh)
+                .disabled(isLoading)
+            pillButton(icon: "person.slash", danger: true, action: onLogout)
+        }
+        .padding(.vertical, 9)
+        .padding(.leading, 18)
+        .padding(.trailing, 10)
+        .background {
+            Capsule()
+                .fill(Color(red: 0.078, green: 0.031, blue: 0.157).opacity(0.62))
+                .overlay(Capsule().stroke(Color.vbLavender.opacity(0.18), lineWidth: 1))
+                .shadow(color: .black.opacity(0.40), radius: 12, y: 4)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 60)
+    }
+
+    private func pillButton(icon: String, danger: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(danger ? .vbDanger : .vbFg2)
+                .frame(width: 34, height: 34)
+                .background(
+                    Circle()
+                        .fill(Color.white.opacity(0.07))
+                        .overlay(Circle().stroke(Color.vbLavender.opacity(0.15), lineWidth: 1))
+                )
         }
     }
 }
 
-// MARK: – Fehler-Banner
+// MARK: – 2D Graph
+
+struct BrainGraphView: View {
+    let nodes: [GraphNode]
+    let edges: [GraphEdge]
+    let selectedNodeID: String?
+    let onNodeTapped:      (String) -> Void
+    let onNodeLongPressed: (String) -> Void
+
+    @State private var zoom: CGFloat = 1.0
+    @State private var pan:  CGSize  = .zero
+    @GestureState private var pinchDelta: CGFloat = 1.0
+    @GestureState private var dragDelta:  CGSize  = .zero
+
+    private var sz: CGSize { UIScreen.main.bounds.size }
+
+    private var connectedIDs: Set<String> {
+        guard let sel = selectedNodeID else { return [] }
+        var ids = Set<String>()
+        for e in edges {
+            if e.sourceID == sel { ids.insert(e.targetID) }
+            if e.targetID == sel { ids.insert(e.sourceID) }
+        }
+        return ids
+    }
+
+    var body: some View {
+        ZStack {
+            Canvas { ctx, canvasSize in
+                let pm        = makePosMap(size: canvasSize)
+                let connected = connectedIDs
+                let selID     = selectedNodeID
+
+                for edge in edges {
+                    guard let a = pm[edge.sourceID], let b = pm[edge.targetID] else { continue }
+                    let isLit = selID.map { edge.sourceID == $0 || edge.targetID == $0 } ?? false
+                    let alpha: Double = selID == nil ? 0.20 : (isLit ? 0.65 : 0.05)
+                    let edgeColor = isLit ? Color.vbLavender : Color.vbPink
+                    var path = Path()
+                    path.move(to: a)
+                    path.addLine(to: b)
+                    ctx.stroke(path,
+                               with: .color(edgeColor.opacity(alpha)),
+                               lineWidth: isLit ? 1.5 : 1.0)
+                }
+
+                for node in nodes {
+                    guard let pt = pm[node.id] else { continue }
+                    let isDim = selID != nil && node.id != selID && !connected.contains(node.id)
+                    if isDim { continue }
+                    let r = nodeRadius(node)
+                    let label = ctx.resolve(
+                        Text(String(node.title.prefix(14)))
+                            .font(.system(size: 9, weight: .medium))
+                    )
+                    ctx.draw(label, at: CGPoint(x: pt.x, y: pt.y + r + 7), anchor: .top)
+                }
+            }
+            .foregroundStyle(Color.vbFg2.opacity(0.70))
+            .allowsHitTesting(false)
+
+            ForEach(nodes) { node in
+                let isSelected = node.id == selectedNodeID
+                let isNeighbor = connectedIDs.contains(node.id)
+                let isDim      = selectedNodeID != nil && !isSelected && !isNeighbor
+                GirlyNodeView(
+                    node: node,
+                    isSelected: isSelected, isNeighbor: isNeighbor, isDim: isDim,
+                    onTap: onNodeTapped, onLongPress: onNodeLongPressed
+                )
+                .position(nodePos(node, size: sz))
+            }
+        }
+        .frame(width: sz.width, height: sz.height)
+        .scaleEffect(zoom * pinchDelta, anchor: .center)
+        .offset(x: pan.width + dragDelta.width, y: pan.height + dragDelta.height)
+        .gesture(
+            MagnificationGesture()
+                .updating($pinchDelta) { v, s, _ in s = v }
+                .onEnded { v in zoom = max(0.3, min(5.0, zoom * v)) }
+                .simultaneously(with:
+                    DragGesture(minimumDistance: 8)
+                        .updating($dragDelta) { v, s, _ in s = v.translation }
+                        .onEnded { v in
+                            pan.width  += v.translation.width
+                            pan.height += v.translation.height
+                        }
+                )
+        )
+    }
+
+    private func nodePos(_ node: GraphNode, size: CGSize) -> CGPoint {
+        let s = min(size.width, size.height) / 13.0
+        return CGPoint(
+            x: size.width  / 2 + CGFloat(node.position.x) * s,
+            y: size.height / 2 - CGFloat(node.position.y) * s
+        )
+    }
+
+    private func makePosMap(size: CGSize) -> [String: CGPoint] {
+        Dictionary(uniqueKeysWithValues: nodes.map { ($0.id, nodePos($0, size: size)) })
+    }
+
+    private func nodeRadius(_ node: GraphNode) -> CGFloat {
+        CGFloat(max(12, min(26, 12 + Double(node.connectionCount) * 2.0)))
+    }
+}
+
+// MARK: – Node Dot
+
+private struct GirlyNodeView: View {
+    let node: GraphNode
+    let isSelected: Bool
+    let isNeighbor: Bool
+    let isDim: Bool
+    let onTap:       (String) -> Void
+    let onLongPress: (String) -> Void
+
+    @State private var pulse = false
+    @State private var rippleScale:   CGFloat = 0.8
+    @State private var rippleOpacity: Double  = 0.0
+
+    private let haptic = UIImpactFeedbackGenerator(style: .medium)
+
+    private var baseR: CGFloat {
+        CGFloat(max(10, min(24, 10 + Double(node.connectionCount) * 1.8)))
+    }
+    private var r: CGFloat { isSelected ? baseR * 1.5 : baseR }
+
+    private var pearlColors: [Color] {
+        if isSelected {
+            return [.vbStardust, Color(red: 1, green: 0.75, blue: 0.86), .vbMagenta, .vbLavender,
+                    Color(red: 0.353, green: 0.176, blue: 0.639)]
+        }
+        let t = Double(min(node.connectionCount, 12)) / 12.0
+        if t > 0.6 {
+            return [.vbStardust, .vbRose, .vbOrchid, Color(red: 0.588, green: 0.318, blue: 0.902),
+                    Color(red: 0.353, green: 0.176, blue: 0.639)]
+        }
+        return [.vbStardust, .vbRose, .vbPink, .vbLavender,
+                Color(red: 0.353, green: 0.176, blue: 0.639)]
+    }
+
+    private var glowColor: Color {
+        isSelected ? .vbMagenta : (isNeighbor ? .vbLavender : .vbPink)
+    }
+
+    var body: some View {
+        ZStack {
+            // Outer aura
+            Circle()
+                .fill(glowColor.opacity(pulse ? 0.22 : 0.06))
+                .frame(width: r * 3.4, height: r * 3.4)
+                .blur(radius: 10)
+                .animation(.easeInOut(duration: 0.3), value: isSelected)
+
+            // Ripple
+            Circle()
+                .stroke(Color.vbLavender.opacity(rippleOpacity), lineWidth: 1.5)
+                .frame(width: r * rippleScale * 2, height: r * rippleScale * 2)
+
+            // Inner halo
+            Circle()
+                .fill(glowColor.opacity(pulse ? 0.30 : 0.10))
+                .frame(width: r * 2.5, height: r * 2.5)
+                .blur(radius: 8)
+                .animation(.easeInOut(duration: 0.3), value: isSelected)
+
+            // Pearl body
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: pearlColors,
+                        center: UnitPoint(x: 0.35, y: 0.32),
+                        startRadius: 0, endRadius: r
+                    )
+                )
+                .frame(width: r * 2, height: r * 2)
+
+            // Specular
+            Circle()
+                .fill(Color.white.opacity(0.65))
+                .frame(width: r * 0.45, height: r * 0.45)
+                .offset(x: -r * 0.22, y: -r * 0.22)
+                .blur(radius: r * 0.12)
+        }
+        .opacity(isDim ? 0.18 : 1.0)
+        .animation(.easeInOut(duration: 0.28), value: isDim)
+        .animation(.easeInOut(duration: 0.28), value: isSelected)
+        .contentShape(Circle().size(CGSize(width: r * 3.4, height: r * 3.4)))
+        .onTapGesture {
+            triggerRipple()
+            haptic.impactOccurred()
+            onTap(node.id)
+        }
+        .onLongPressGesture(minimumDuration: 0.5) {
+            UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+            onLongPress(node.id)
+        }
+        .onAppear {
+            withAnimation(
+                .easeInOut(duration: Double.random(in: 1.8...3.2))
+                .repeatForever(autoreverses: true)
+                .delay(Double.random(in: 0...2.0))
+            ) { pulse = true }
+            haptic.prepare()
+        }
+    }
+
+    private func triggerRipple() {
+        rippleScale   = 0.8
+        rippleOpacity = 0.8
+        withAnimation(.easeOut(duration: 0.56)) {
+            rippleScale   = 2.8
+            rippleOpacity = 0.0
+        }
+    }
+}
+
+// MARK: – Long Press Menu
+
+private struct LongPressMenuView: View {
+    let node: GraphNode
+    let connectedCount: Int
+    let onOpen:         () -> Void
+    let onCopyWikilink: () -> Void
+    let onDismiss:      () -> Void
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            Color.black.opacity(0.52)
+                .ignoresSafeArea()
+                .onTapGesture { onDismiss() }
+
+            VStack(spacing: 0) {
+                Capsule()
+                    .fill(Color.vbLavender.opacity(0.40))
+                    .frame(width: 36, height: 4)
+                    .padding(.top, 10)
+
+                HStack(spacing: 14) {
+                    ZStack {
+                        Circle()
+                            .fill(
+                                RadialGradient(
+                                    colors: [.vbStardust, .vbMagenta, .vbLavender],
+                                    center: UnitPoint(x: 0.35, y: 0.35),
+                                    startRadius: 0, endRadius: 18
+                                )
+                            )
+                            .frame(width: 36, height: 36)
+                        Circle()
+                            .fill(Color.white.opacity(0.60))
+                            .frame(width: 9, height: 9)
+                            .offset(x: -5, y: -5)
+                            .blur(radius: 2)
+                    }
+                    .shadow(color: .vbMagenta.opacity(0.65), radius: 10)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(node.title)
+                            .font(.system(size: 22, weight: .medium, design: .serif))
+                            .foregroundColor(.vbFg1)
+                        Text("\(connectedCount) verbundene Notizen")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.vbFg3)
+                    }
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 18)
+                .padding(.bottom, 14)
+
+                menuRow(icon: "arrow.up.right.square", label: "Notiz öffnen",    action: onOpen)
+                menuRow(icon: "doc.on.doc",            label: "Wikilink kopieren", action: onCopyWikilink)
+                menuRow(icon: "xmark",                 label: "Schließen",       action: onDismiss)
+            }
+            .background {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(Color(red: 0.071, green: 0.031, blue: 0.149).opacity(0.95))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .stroke(Color.vbLavender.opacity(0.18), lineWidth: 1)
+                    )
+            }
+            .shadow(color: .black.opacity(0.70), radius: 40, y: -8)
+            .padding(.horizontal, 12)
+            .padding(.bottom, 34)
+        }
+        .ignoresSafeArea()
+    }
+
+    private func menuRow(icon: String, label: String, danger: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(danger ? .vbDanger : .vbLavender)
+                    .frame(width: 24, alignment: .center)
+                Text(label)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(danger ? .vbDanger : .vbFg1)
+                Spacer()
+            }
+            .padding(.vertical, 14)
+            .padding(.horizontal, 20)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .overlay(alignment: .top) {
+            Color.vbLavender.opacity(0.10).frame(height: 1)
+        }
+    }
+}
+
+// MARK: – Loading Universe
+
+private struct LoadingUniverseView: View {
+    let progress: Double
+
+    private var headline: String {
+        switch progress {
+        case 0..<0.20:  return "Dein Gedankenuniversum erwacht…"
+        case 0.20..<0.45: return "Sammle deine Sterne…"
+        case 0.45..<0.70: return "Verknüpfe deine Gedanken…"
+        case 0.70..<0.90: return "Baue dein Universum…"
+        default:          return "Fast da…"
+        }
+    }
+
+    private var subline: String {
+        progress < 0.45 ? "Lade Vault …" : "Verbinde Notizen…"
+    }
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [Color(red: 0.165, green: 0.082, blue: 0.314), .vbDeep, .vbVoid],
+                startPoint: .top, endPoint: .bottom
+            )
+            .ignoresSafeArea()
+
+            VStack(spacing: 44) {
+                PearlView(size: 120)
+
+                VStack(spacing: 28) {
+                    Text(headline)
+                        .font(.system(size: 22, design: .serif))
+                        .italic()
+                        .foregroundColor(.vbFg2)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 280)
+                        .animation(.easeInOut(duration: 0.5), value: headline)
+
+                    VStack(spacing: 10) {
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(Color.white.opacity(0.08))
+                                Capsule()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [.vbPink, .vbLavender, .vbPeriwinkle],
+                                            startPoint: .leading, endPoint: .trailing
+                                        )
+                                    )
+                                    .frame(width: max(0, geo.size.width * progress))
+                                    .shadow(color: .vbPink.opacity(0.60), radius: 6)
+                            }
+                        }
+                        .frame(maxWidth: 280, maxHeight: 3)
+
+                        HStack {
+                            Text(subline)
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(.vbFg3)
+                            Spacer()
+                            Text("\(Int(progress * 100)) %")
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(.vbLavender)
+                                .monospacedDigit()
+                        }
+                        .frame(maxWidth: 280)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: – Error Banner
 
 private struct ErrorBannerView: View {
     let message: String
@@ -130,267 +685,24 @@ private struct ErrorBannerView: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundColor(.red)
+                .foregroundColor(.vbDanger)
+                .font(.system(size: 13))
             Text(message)
-                .font(.caption)
-                .foregroundColor(.white)
+                .font(.system(size: 12))
+                .foregroundColor(.vbFg2)
                 .lineLimit(2)
             Spacer()
             Button("Erneut", action: retry)
-                .font(.caption.bold())
-                .foregroundColor(.purple)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.vbLavender)
         }
         .padding(14)
-        .background(Color(red: 0.15, green: 0.05, blue: 0.05))
-        .cornerRadius(12)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.red.opacity(0.4), lineWidth: 1))
-        .padding(.horizontal, 16)
-    }
-}
-
-// MARK: – SceneKit UIViewRepresentable
-
-struct BrainSceneView: UIViewRepresentable {
-
-    let nodes: [GraphNode]
-    let edges: [GraphEdge]
-    let onNodeTapped: (String) -> Void
-
-    func makeUIView(context: Context) -> SCNView {
-        let view = SCNView()
-        view.scene            = context.coordinator.scene
-        view.backgroundColor  = .black
-        view.allowsCameraControl = true   // Pinch-Zoom + Drehen durch SceneKit
-        view.autoenablesDefaultLighting  = false
-        view.antialiasingMode = .multisampling4X
-        view.preferredFramesPerSecond = 60
-
-        let tap = UITapGestureRecognizer(
-            target: context.coordinator,
-            action: #selector(Coordinator.handleTap(_:))
+        .background(Color(red: 0.086, green: 0.027, blue: 0.059))
+        .cornerRadius(14)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(Color.vbDanger.opacity(0.40), lineWidth: 1)
         )
-        view.addGestureRecognizer(tap)
-        return view
-    }
-
-    func updateUIView(_ uiView: SCNView, context: Context) {
-        // Szene nur neu aufbauen wenn sich die Knotenanzahl geändert hat
-        guard context.coordinator.lastBuildCount != nodes.count else { return }
-        context.coordinator.buildScene(nodes: nodes, edges: edges)
-        context.coordinator.lastBuildCount = nodes.count
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(onNodeTapped: onNodeTapped)
-    }
-
-    // MARK: Coordinator – verwaltet SCNScene und Tap-Handling
-
-    final class Coordinator: NSObject {
-        let scene = SCNScene()
-        var onNodeTapped: (String) -> Void
-        var nodeMap: [SCNNode: String] = [:]  // SCNNode → Note-ID
-        var lastBuildCount = 0
-
-        init(onNodeTapped: @escaping (String) -> Void) {
-            self.onNodeTapped = onNodeTapped
-            super.init()
-            setupBaseScene()
-        }
-
-        // Richtet Kamera, Beleuchtung und äußere Gehirn-Kugel ein
-        private func setupBaseScene() {
-            // Kamera mit weitem Sichtfeld
-            let cam      = SCNCamera()
-            cam.zFar     = 300
-            cam.fieldOfView = 60
-            let camNode  = SCNNode()
-            camNode.name = "camera"
-            camNode.camera   = cam
-            camNode.position = SCNVector3(0, 0, 22)
-            scene.rootNode.addChildNode(camNode)
-
-            // Weiches blaues Umgebungslicht
-            let ambient      = SCNNode()
-            ambient.light    = SCNLight()
-            ambient.light!.type      = .ambient
-            ambient.light!.color     = UIColor(red: 0.08, green: 0.05, blue: 0.25, alpha: 1)
-            ambient.light!.intensity = 400
-            scene.rootNode.addChildNode(ambient)
-
-            // Violettes Hauptlicht von oben-vorne
-            let key         = SCNNode()
-            key.light       = SCNLight()
-            key.light!.type      = .directional
-            key.light!.color     = UIColor(red: 0.55, green: 0.25, blue: 1.0, alpha: 1)
-            key.light!.intensity = 700
-            key.position    = SCNVector3(8, 12, 10)
-            scene.rootNode.addChildNode(key)
-
-            // Blaues Fülllicht von hinten
-            let fill        = SCNNode()
-            fill.light      = SCNLight()
-            fill.light!.type      = .directional
-            fill.light!.color     = UIColor(red: 0.0, green: 0.3, blue: 0.8, alpha: 1)
-            fill.light!.intensity = 300
-            fill.position   = SCNVector3(-8, -5, -10)
-            scene.rootNode.addChildNode(fill)
-
-            // Transparente äußere Kugel – der "Gehirn-Container"
-            let outerGeo  = SCNSphere(radius: 8.5)
-            let outerMat  = SCNMaterial()
-            outerMat.diffuse.contents   = UIColor(red: 0.4, green: 0.0, blue: 0.8, alpha: 0.04)
-            outerMat.emission.contents  = UIColor(red: 0.2, green: 0.0, blue: 0.5, alpha: 0.08)
-            outerMat.isDoubleSided      = true
-            outerMat.transparency       = 0.88
-            outerGeo.materials = [outerMat]
-            let outerNode  = SCNNode(geometry: outerGeo)
-            outerNode.name = "outerSphere"
-            // Langsame Rotation für lebendigen Look
-            outerNode.runAction(.repeatForever(.rotateBy(x: 0.02, y: 0.15, z: 0.01, duration: 10)))
-            scene.rootNode.addChildNode(outerNode)
-        }
-
-        // Baut alle Node-Spheres und Kanten-Zylinder in die Szene ein
-        func buildScene(nodes: [GraphNode], edges: [GraphEdge]) {
-            // Alte Nodes und Edges entfernen (nicht Basis-Szene)
-            scene.rootNode.childNodes
-                .filter { $0.name?.hasPrefix("n_") == true || $0.name?.hasPrefix("e_") == true }
-                .forEach { $0.removeFromParentNode() }
-            nodeMap.removeAll()
-
-            // Nodes
-            for node in nodes {
-                let scnNode = makeNodeSphere(node)
-                scene.rootNode.addChildNode(scnNode)
-                nodeMap[scnNode] = node.id
-            }
-
-            // Edges als dünne Zylinder
-            let posMap = Dictionary(uniqueKeysWithValues: nodes.map { ($0.id, $0.position) })
-            for (idx, edge) in edges.enumerated() {
-                guard let from = posMap[edge.sourceID],
-                      let to   = posMap[edge.targetID] else { continue }
-                let edgeNode = makeEdgeCylinder(from: from, to: to, index: idx)
-                scene.rootNode.addChildNode(edgeNode)
-            }
-        }
-
-        // Erstellt eine Knotenspähere; Größe + Farbe hängen von Verbindungsanzahl ab
-        private func makeNodeSphere(_ node: GraphNode) -> SCNNode {
-            let connections = node.connectionCount
-            let radius = CGFloat(0.10 + Float(connections) * 0.025).clamped(to: 0.10...0.55)
-
-            let geo = SCNSphere(radius: radius)
-            geo.segmentCount = 16
-
-            // Farbverlauf: wenig verbunden = blau, viel verbunden = pink/magenta
-            let t       = min(Double(connections) / 12.0, 1.0)
-            let hue     = CGFloat(0.75 - t * 0.35)       // 0.75 = blau, 0.40 = magenta
-            let sat     = CGFloat(0.7 + t * 0.3)
-            let color   = UIColor(hue: hue, saturation: sat, brightness: 1.0, alpha: 1.0)
-
-            let mat = SCNMaterial()
-            mat.diffuse.contents  = color
-            mat.emission.contents = color.withAlphaComponent(0.45)  // Glüheffekt
-            mat.lightingModel     = .blinn
-            mat.specular.contents = UIColor.white.withAlphaComponent(0.5)
-            geo.materials = [mat]
-
-            let scnNode = SCNNode(geometry: geo)
-            scnNode.name = "n_\(node.id)"
-            scnNode.position = node.position
-
-            // Sanftes Pulsieren (zufälliger Versatz über sine für natürlicheren Look)
-            let offset = Float.random(in: 0...Float.pi * 2)
-            let pulse  = SCNAction.repeatForever(.customAction(duration: 2.5) { node, t in
-                let s = Float(1.0 + 0.10 * sin(Double(t) * Double.pi * 2 + Double(offset)))
-                node.scale = SCNVector3(s, s, s)
-            })
-            scnNode.runAction(pulse)
-
-            return scnNode
-        }
-
-        // Erstellt einen Zylinder zwischen zwei 3D-Punkten (als Kante im Graphen)
-        private func makeEdgeCylinder(from start: SCNVector3, to end: SCNVector3, index: Int) -> SCNNode {
-            let dx = end.x - start.x
-            let dy = end.y - start.y
-            let dz = end.z - start.z
-            let len = sqrt(dx*dx + dy*dy + dz*dz)
-            guard len > 0.001 else { return SCNNode() }
-
-            let geo = SCNCylinder(radius: 0.012, height: CGFloat(len))
-            let mat = SCNMaterial()
-            mat.diffuse.contents  = UIColor(red: 0.45, green: 0.20, blue: 0.90, alpha: 0.25)
-            mat.emission.contents = UIColor(red: 0.25, green: 0.05, blue: 0.70, alpha: 0.15)
-            mat.lightingModel     = .constant   // Kein Licht-Shading für Kanten
-            geo.materials = [mat]
-
-            let node = SCNNode(geometry: geo)
-            node.name = "e_\(index)"
-
-            // Zylinder in der Mitte zwischen Start und Endpunkt platzieren
-            node.position = SCNVector3(
-                (start.x + end.x) * 0.5,
-                (start.y + end.y) * 0.5,
-                (start.z + end.z) * 0.5
-            )
-
-            // Zylinder von Standard-Y-Achse auf Richtungsvektor drehen
-            // Kreuzprodukt: Y × dir = Rotationsachse; dot = cos(Winkel)
-            let nx = dx / len, ny = dy / len, nz = dz / len
-            let dot = ny   // dot((0,1,0), (nx,ny,nz)) = ny
-
-            if abs(dot + 1.0) < 0.001 {
-                // Richtung ist genau −Y: 180° um X-Achse drehen
-                node.eulerAngles = SCNVector3(Float.pi, 0, 0)
-            } else if abs(dot - 1.0) > 0.001 {
-                // Kreuzprodukt: (0,1,0) × (nx,ny,nz) = (nz, 0, −nx)
-                let cx = nz, cy: Float = 0, cz = -nx
-                let cLen = sqrt(cx*cx + cz*cz)
-                if cLen > 0.001 {
-                    node.rotation = SCNVector4(cx / cLen, cy, cz / cLen, acos(max(-1, min(1, dot))))
-                }
-            }
-
-            return node
-        }
-
-        // Verarbeitet Tap-Gesten auf der SCNView und findet den angetippten Node
-        @objc func handleTap(_ gesture: UITapGestureRecognizer) {
-            guard let scnView = gesture.view as? SCNView else { return }
-            let pt   = gesture.location(in: scnView)
-            let hits = scnView.hitTest(pt, options: [
-                SCNHitTestOption.boundingBoxOnly: false,
-                SCNHitTestOption.firstFoundOnly:  true
-            ])
-
-            for hit in hits {
-                // Gehe Node-Hierarchie hoch (falls zusammengesetzte Geometrie)
-                var node: SCNNode? = hit.node
-                while let n = node {
-                    if let noteID = nodeMap[n] {
-                        // Visuelles Flash-Feedback beim Antippen
-                        let flash = SCNAction.sequence([
-                            .scale(to: 2.2, duration: 0.08),
-                            .scale(to: 1.0, duration: 0.18)
-                        ])
-                        n.runAction(flash)
-                        // State-Update muss auf Main-Thread
-                        DispatchQueue.main.async { self.onNodeTapped(noteID) }
-                        return
-                    }
-                    node = n.parent
-                }
-            }
-        }
-    }
-}
-
-// Hilfserweiterung: Begrenzt einen Comparable-Wert auf ein Intervall
-private extension Comparable {
-    func clamped(to range: ClosedRange<Self>) -> Self {
-        min(max(self, range.lowerBound), range.upperBound)
+        .padding(.horizontal, 16)
     }
 }

@@ -1,4 +1,6 @@
-// NoteView.swift – Notiz anzeigen, bearbeiten und zu GitHub pushen
+//
+//  NoteView.swift
+//  vb_ios
 
 import SwiftUI
 
@@ -8,7 +10,7 @@ struct NoteView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var note: Note?
-    @State private var editBuffer  = ""    // Zwischenspeicher für den Editor
+    @State private var editBuffer  = ""
     @State private var isEditing   = false
     @State private var isSaving    = false
     @State private var isLoading   = true
@@ -18,143 +20,163 @@ struct NoteView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(red: 0.05, green: 0.02, blue: 0.10).ignoresSafeArea()
+                Color.vbDeep.ignoresSafeArea()
 
                 if isLoading {
-                    ProgressView("Lade Notiz …").tint(.purple).foregroundColor(.white)
+                    VStack(spacing: 16) {
+                        PearlView(size: 44)
+                        Text("Lade Notiz …")
+                            .font(.system(size: 15, design: .serif))
+                            .italic()
+                            .foregroundColor(.vbFg3)
+                    }
                 } else if let note {
                     noteBody(note)
                 } else {
                     errorBody
                 }
             }
-            .navigationTitle(note?.name ?? "Notiz")
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Color(red: 0.05, green: 0.02, blue: 0.10), for: .navigationBar)
+            .toolbarBackground(Color.vbDeep, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar { toolbarContent }
             .overlay(alignment: .top) { successBanner }
         }
+        .presentationCornerRadius(28)
+        .presentationBackground(Color.vbDeep)
         .task { await loadNote() }
     }
 
-    // Haupt-Body: Editor-Modus oder Lese-Modus
     @ViewBuilder
     private func noteBody(_ note: Note) -> some View {
-        if isEditing {
-            editorView
-        } else {
-            readView(note)
-        }
+        if isEditing { editorView } else { readView(note) }
     }
 
-    // Lese-Modus: Markdown formatiert anzeigen
     private func readView(_ note: Note) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
+                // Journal date stamp
+                Text(formattedDate())
+                    .font(.system(size: 20, weight: .medium, design: .serif))
+                    .italic()
+                    .foregroundColor(.vbLavender)
+                    .rotationEffect(.degrees(-1.5))
+                    .padding(.horizontal, 28)
+                    .padding(.top, 16)
+                    .padding(.bottom, 4)
+
+                // Note title
+                Text(note.name)
+                    .font(.system(size: 32, weight: .medium, design: .serif))
+                    .foregroundColor(.vbFg1)
+                    .padding(.horizontal, 28)
+                    .padding(.bottom, 22)
+
+                // Markdown body
                 MarkdownView(content: note.content)
-                    .padding()
+                    .padding(.horizontal, 28)
 
-                // Verknüpfte Notizen als Chips
+                // Backlinks
                 if !note.links.isEmpty {
-                    Divider()
-                        .background(Color.purple.opacity(0.3))
-                        .padding(.horizontal)
+                    Color.vbLavender.opacity(0.20)
+                        .frame(height: 1)
+                        .padding(.horizontal, 28)
+                        .padding(.top, 30)
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("Verknüpfte Notizen (\(note.links.count))", systemImage: "link")
-                            .font(.caption.bold())
-                            .foregroundColor(.gray)
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(note.links, id: \.self) { link in
-                                    Text("[[" + link + "]]")
-                                        .font(.caption)
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 5)
-                                        .background(Color.purple.opacity(0.20))
-                                        .foregroundColor(.purple)
-                                        .cornerRadius(8)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 8)
-                                                .stroke(Color.purple.opacity(0.4), lineWidth: 1)
-                                        )
-                                }
-                            }
-                            .padding(.horizontal)
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "link")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(.vbLavender)
+                            Text("Verknüpfte Notizen (\(Set(note.links).count))")
+                                .font(.system(size: 11, weight: .semibold))
+                                .tracking(1.0)
+                                .textCase(.uppercase)
+                                .foregroundColor(.vbFg3)
                         }
+                        BacklinkPillsView(links: Array(Set(note.links)).sorted())
                     }
-                    .padding(.top, 12)
-                    .padding(.bottom, 20)
+                    .padding(.horizontal, 28)
+                    .padding(.top, 18)
+                    .padding(.bottom, 44)
                 }
             }
         }
     }
 
-    // Editor-Modus: Einfacher Monospace-Editor für Markdown
     private var editorView: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Label("Markdown bearbeiten", systemImage: "pencil.and.outline")
-                    .font(.caption.bold())
-                    .foregroundColor(.purple)
+                HStack(spacing: 6) {
+                    Image(systemName: "pencil.and.outline")
+                        .font(.system(size: 10))
+                        .foregroundColor(.vbLavender)
+                    Text("Markdown bearbeiten")
+                        .font(.system(size: 11, weight: .semibold))
+                        .tracking(0.8)
+                        .textCase(.uppercase)
+                        .foregroundColor(.vbLavender)
+                }
                 Spacer()
                 Button("Abbrechen") {
-                    isEditing  = false
-                    errorMsg   = nil
+                    isEditing = false
+                    errorMsg  = nil
                 }
-                .font(.caption)
-                .foregroundColor(.red)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.vbDanger)
             }
-            .padding(.horizontal)
-            .padding(.vertical, 10)
-            .background(Color.black.opacity(0.3))
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .background(Color.vbNebula)
 
             if let err = errorMsg {
                 Text(err)
-                    .font(.caption)
-                    .foregroundColor(.red)
-                    .padding(.horizontal)
-                    .padding(.top, 6)
+                    .font(.system(size: 12))
+                    .foregroundColor(.vbDanger)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
             }
 
             TextEditor(text: $editBuffer)
                 .scrollContentBackground(.hidden)
                 .background(Color.clear)
-                .foregroundColor(.white)
-                .font(.system(.body, design: .monospaced))
-                .padding(.horizontal, 8)
+                .foregroundColor(.vbFg1)
+                .font(.system(size: 14, design: .monospaced))
+                .padding(.horizontal, 12)
         }
     }
 
-    // Fehler-Ansicht wenn Note nicht geladen werden konnte
     private var errorBody: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 20) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 40))
-                .foregroundColor(.red)
+                .font(.system(size: 36))
+                .foregroundColor(.vbDanger)
             Text(errorMsg ?? "Unbekannter Fehler")
-                .foregroundColor(.white)
+                .foregroundColor(.vbFg2)
+                .font(.system(size: 15))
                 .multilineTextAlignment(.center)
             Button("Erneut versuchen") { Task { await loadNote() } }
-                .foregroundColor(.purple)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundColor(.vbLavender)
         }
         .padding()
     }
 
-    // Grüner Erfolgs-Banner der kurz einblendet
     @ViewBuilder
     private var successBanner: some View {
         if showSuccess {
             HStack(spacing: 8) {
-                Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
-                Text("Auf GitHub gespeichert").foregroundColor(.white).font(.subheadline)
+                Image(systemName: "checkmark.circle.fill").foregroundColor(.vbSuccess)
+                Text("Auf GitHub gespeichert")
+                    .foregroundColor(.vbFg1)
+                    .font(.system(size: 14, weight: .medium))
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(Color(red: 0.05, green: 0.25, blue: 0.10))
+            .padding(.horizontal, 18)
+            .padding(.vertical, 11)
+            .background(Color(red: 0.031, green: 0.157, blue: 0.071))
             .cornerRadius(20)
-            .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.green.opacity(0.5), lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.vbSuccess.opacity(0.5), lineWidth: 1))
             .padding(.top, 8)
             .transition(.move(edge: .top).combined(with: .opacity))
         }
@@ -164,18 +186,19 @@ struct NoteView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .topBarLeading) {
             Button("Schließen") { dismiss() }
-                .foregroundColor(.purple)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundColor(.vbLavender)
         }
         if note != nil {
             ToolbarItem(placement: .topBarTrailing) {
                 if isEditing {
-                    Button {
-                        Task { await saveNote() }
-                    } label: {
+                    Button { Task { await saveNote() } } label: {
                         if isSaving {
-                            ProgressView().tint(.white).scaleEffect(0.8)
+                            ProgressView().tint(.vbLavender).scaleEffect(0.8)
                         } else {
-                            Text("Speichern").bold().foregroundColor(.green)
+                            Text("Speichern")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(.vbSuccess)
                         }
                     }
                     .disabled(isSaving)
@@ -184,43 +207,45 @@ struct NoteView: View {
                         editBuffer = note?.content ?? ""
                         isEditing  = true
                     }
-                    .foregroundColor(.purple)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(.vbLavender)
                 }
             }
         }
     }
 
-    // Lädt Notiz aus Cache oder frisch von GitHub
+    private func formattedDate() -> String {
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "de_DE")
+        df.dateFormat = "d. MMMM — EEEE"
+        return df.string(from: Date())
+    }
+
     private func loadNote() async {
         isLoading = true
         errorMsg  = nil
-
         if let cached = viewModel.notes[noteID] {
-            note      = cached
+            note       = cached
             editBuffer = cached.content
-            isLoading = false
+            isLoading  = false
             return
         }
-
         do {
             let fetched = try await viewModel.fetchNote(path: noteID)
-            note       = fetched
-            editBuffer = fetched.content
+            note        = fetched
+            editBuffer  = fetched.content
         } catch {
             errorMsg = error.localizedDescription
         }
         isLoading = false
     }
 
-    // Speichert den aktuellen Editor-Inhalt zu GitHub (erzeugt Commit)
     private func saveNote() async {
         guard var updated = note else { return }
         isSaving = true
         errorMsg = nil
-
         updated.content = editBuffer
         updated.links   = parseWikilinks(in: editBuffer)
-
         do {
             try await viewModel.updateNote(updated)
             note      = viewModel.notes[noteID]
@@ -234,7 +259,6 @@ struct NoteView: View {
         isSaving = false
     }
 
-    // Parst [[wikilinks]] lokal (wird nach dem Speichern für den Note-Cache benötigt)
     private func parseWikilinks(in content: String) -> [String] {
         guard let re = try? NSRegularExpression(pattern: #"\[\[([^\[\]\n]+?)\]\]"#) else { return [] }
         let range = NSRange(content.startIndex..., in: content)
@@ -245,9 +269,56 @@ struct NoteView: View {
     }
 }
 
-// MARK: – Markdown-Renderer
+// MARK: – Backlink Pills (wrapping layout)
 
-// Wandelt gängige Obsidian/Markdown-Syntax in SwiftUI-Views um (kein externes Framework nötig)
+private struct BacklinkPillsView: View {
+    let links: [String]
+
+    var body: some View {
+        FlowLayout(spacing: 8) {
+            ForEach(links, id: \.self) { link in
+                Text("[[\(link)]]")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.vbLavender)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.vbLavender.opacity(0.12))
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(Color.vbLavender.opacity(0.32), lineWidth: 1))
+            }
+        }
+    }
+}
+
+private struct FlowLayout: Layout {
+    let spacing: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) -> CGSize {
+        let width = proposal.width ?? 0
+        var x: CGFloat = 0, y: CGFloat = 0, rowH: CGFloat = 0
+        for view in subviews {
+            let size = view.sizeThatFits(.unspecified)
+            if x + size.width > width && x > 0 { x = 0; y += rowH + spacing; rowH = 0 }
+            x += size.width + spacing
+            rowH = max(rowH, size.height)
+        }
+        return CGSize(width: width, height: y + rowH)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) {
+        var x = bounds.minX, y = bounds.minY, rowH: CGFloat = 0
+        for view in subviews {
+            let size = view.sizeThatFits(.unspecified)
+            if x + size.width > bounds.maxX && x > bounds.minX { x = bounds.minX; y += rowH + spacing; rowH = 0 }
+            view.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            rowH = max(rowH, size.height)
+        }
+    }
+}
+
+// MARK: – Markdown Renderer
+
 struct MarkdownView: View {
     let content: String
 
@@ -262,90 +333,70 @@ struct MarkdownView: View {
 
     @ViewBuilder
     private func renderLine(_ line: String) -> some View {
-        // Überschriften H1–H3
         if line.hasPrefix("# ") {
             Text(line.dropFirst(2))
-                .font(.title.bold())
-                .foregroundColor(.white)
-                .padding(.top, 10)
-
+                .font(.system(size: 28, weight: .medium, design: .serif))
+                .foregroundColor(.vbFg1)
+                .padding(.top, 12)
         } else if line.hasPrefix("## ") {
             Text(line.dropFirst(3))
-                .font(.title2.bold())
-                .foregroundColor(.white)
-                .padding(.top, 6)
-
+                .font(.system(size: 22, weight: .medium, design: .serif))
+                .foregroundColor(.vbFg1)
+                .padding(.top, 8)
         } else if line.hasPrefix("### ") {
             Text(line.dropFirst(4))
-                .font(.system(.title3, weight: .semibold))
-                .foregroundColor(.white.opacity(0.9))
-                .padding(.top, 4)
-
-        // Aufzählungen (- oder *)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(.vbFg1.opacity(0.9))
+                .padding(.top, 5)
         } else if line.hasPrefix("- ") || line.hasPrefix("* ") {
             HStack(alignment: .top, spacing: 8) {
-                Text("•")
-                    .foregroundColor(.purple)
-                    .font(.body.bold())
+                Text("·")
+                    .foregroundColor(.vbLavender)
+                    .font(.system(size: 16, weight: .bold))
                 inlineText(String(line.dropFirst(2)))
-                    .foregroundColor(.white.opacity(0.85))
+                    .foregroundColor(.vbFg2)
             }
-
-        // Nummerierte Listen: "1. ", "2. " etc.
         } else if let match = line.firstMatch(of: /^(\d+)\. (.*)/) {
             HStack(alignment: .top, spacing: 8) {
                 Text("\(match.output.1).")
-                    .foregroundColor(.purple)
-                    .font(.body.bold())
+                    .foregroundColor(.vbLavender)
+                    .font(.system(size: 15, weight: .semibold))
                     .frame(minWidth: 20, alignment: .trailing)
-                inlineText(String(match.output.2))
-                    .foregroundColor(.white.opacity(0.85))
+                inlineText(String(match.output.2)).foregroundColor(.vbFg2)
             }
-
-        // Blockzitat
         } else if line.hasPrefix("> ") {
             HStack(spacing: 10) {
-                Rectangle()
-                    .fill(LinearGradient(colors: [.purple, .blue], startPoint: .top, endPoint: .bottom))
-                    .frame(width: 3)
+                LinearGradient(colors: [.vbPink, .vbLavender], startPoint: .top, endPoint: .bottom)
+                    .frame(width: 2)
+                    .cornerRadius(1)
                 inlineText(String(line.dropFirst(2)))
-                    .foregroundColor(.gray)
+                    .foregroundColor(.vbFg3)
                     .italic()
             }
             .padding(.vertical, 2)
-
-        // Code-Block-Marker (```); einfache Darstellung
         } else if line.hasPrefix("```") {
             Text(line.isEmpty ? " " : line)
-                .font(.system(.caption, design: .monospaced))
-                .foregroundColor(.green.opacity(0.7))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 2)
+                .font(.system(size: 12, design: .monospaced))
+                .foregroundColor(.vbSuccess.opacity(0.8))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 3)
                 .background(Color.white.opacity(0.04))
-                .cornerRadius(4)
-
-        // Horizontale Linie ---
+                .cornerRadius(6)
         } else if line == "---" || line == "***" {
-            Rectangle()
-                .fill(Color.purple.opacity(0.3))
+            Color.vbLavender.opacity(0.20)
                 .frame(height: 1)
-                .padding(.vertical, 6)
-
-        // Leerzeile → kleiner Abstand
+                .cornerRadius(1)
+                .padding(.vertical, 8)
         } else if line.trimmingCharacters(in: .whitespaces).isEmpty {
             Spacer().frame(height: 6)
-
-        // Normaler Absatz
         } else {
             inlineText(line)
-                .foregroundColor(.white.opacity(0.85))
+                .foregroundColor(.vbFg2)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
 
-    // Verarbeitet Inline-Markdown: **fett**, *kursiv*, `code`, [[wikilinks]]
     private func inlineText(_ text: String) -> Text {
-        // Nutze AttributedString für Markdown-Inline-Syntax (iOS 15+)
         var attrStr: AttributedString
         do {
             attrStr = try AttributedString(
@@ -355,21 +406,16 @@ struct MarkdownView: View {
         } catch {
             attrStr = AttributedString(text)
         }
-
-        // [[Wikilinks]] nachträglich lila einfärben (wird von AttributedString(markdown:) ignoriert)
         if let re = try? NSRegularExpression(pattern: #"\[\[[^\[\]]+\]\]"#) {
-            let ns    = text as NSString
-            let range = NSRange(location: 0, length: ns.length)
+            let range = NSRange(text.startIndex..., in: text)
             for m in re.matches(in: text, range: range).reversed() {
                 if let strRange  = Range(m.range, in: text),
                    let attrRange = Range(strRange, in: attrStr) {
-                    attrStr[attrRange].foregroundColor = .purple
-                    attrStr[attrRange].font = .body.bold()
+                    attrStr[attrRange].foregroundColor = Color.vbLavender
+                    attrStr[attrRange].font = Font.system(size: 15, weight: .semibold)
                 }
             }
         }
-
         return Text(attrStr)
     }
 }
-

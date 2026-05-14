@@ -1,153 +1,184 @@
-// SetupView.swift – Ersteinstieg: GitHub Token und Repo eingeben
+//
+//  SetupView.swift
+//  vb_ios
 
 import SwiftUI
 
 struct SetupView: View {
     @EnvironmentObject var viewModel: AppViewModel
 
-    @State private var token      = ""
-    @State private var repoPath   = ""
-    @State private var isLoading  = false
+    @State private var token     = ""
+    @State private var repoPath  = ""
+    @State private var isLoading = false
     @State private var errorMsg: String?
 
     var body: some View {
         ZStack {
-            // Dunkler Verlauf-Hintergrund passend zum "Gehirn"-Thema
+            // Dawn gradient
             LinearGradient(
-                colors: [Color(red: 0.05, green: 0.0, blue: 0.12), .black],
+                colors: [Color(red: 0.165, green: 0.082, blue: 0.314), .vbDeep, .vbVoid],
                 startPoint: .top, endPoint: .bottom
             )
             .ignoresSafeArea()
 
+            // Faint nebula bloom
+            RadialGradient(
+                colors: [Color.vbLavender.opacity(0.12), .clear],
+                center: UnitPoint(x: 0.30, y: 0.18),
+                startRadius: 0, endRadius: 260
+            )
+            .ignoresSafeArea()
+
             ScrollView {
-                VStack(spacing: 36) {
-
-                    // Header mit App-Icon
-                    VStack(spacing: 12) {
-                        ZStack {
-                            Circle()
-                                .fill(LinearGradient(
-                                    colors: [.purple, .blue],
-                                    startPoint: .topLeading, endPoint: .bottomTrailing))
-                                .frame(width: 90, height: 90)
-                                .blur(radius: 20)
-                                .opacity(0.6)
-                            Image(systemName: "brain.head.profile")
-                                .font(.system(size: 56, weight: .thin))
-                                .foregroundStyle(LinearGradient(
-                                    colors: [.purple, .cyan],
-                                    startPoint: .topLeading, endPoint: .bottomTrailing))
-                        }
+                VStack(spacing: 0) {
+                    // Hero
+                    VStack(spacing: 16) {
+                        PearlView(size: 88)
                         Text("Virtual Brain")
-                            .font(.largeTitle.bold())
-                            .foregroundColor(.white)
-                        Text("Verbinde deinen Obsidian Vault mit GitHub")
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
+                            .font(.system(size: 38, weight: .medium, design: .serif))
+                            .foregroundColor(.vbFg1)
+                            .tracking(-0.8)
+                        Text("Verbinde deinen Obsidian Vault mit GitHub.")
+                            .font(.system(size: 16, design: .serif))
+                            .italic()
+                            .foregroundColor(.vbFg2)
                             .multilineTextAlignment(.center)
+                            .frame(maxWidth: 260)
                     }
-                    .padding(.top, 52)
+                    .padding(.top, 72)
+                    .padding(.bottom, 40)
 
-                    // Eingabe-Karte
-                    VStack(spacing: 20) {
+                    // Input card
+                    VStack(spacing: 18) {
+                        inputField(
+                            label: "Personal Access Token",
+                            icon: "key.fill",
+                            placeholder: "ghp_xxxxxxxxxxxxxxxxxxxx",
+                            text: $token,
+                            secure: true
+                        )
+                        inputField(
+                            label: "Repository (owner/repo)",
+                            icon: "folder.fill",
+                            placeholder: "dein-user/mein-obsidian-vault",
+                            text: $repoPath,
+                            secure: false
+                        )
 
-                        // Token-Feld (verdeckt wie Passwort)
-                        VStack(alignment: .leading, spacing: 6) {
-                            Label("Personal Access Token", systemImage: "key.fill")
-                                .font(.caption.bold())
-                                .foregroundColor(.gray)
-                            SecureField("ghp_xxxxxxxxxxxxxxxxxxxx", text: $token)
-                                .padding(14)
-                                .background(Color.white.opacity(0.08))
-                                .cornerRadius(12)
-                                .foregroundColor(.white)
-                                .autocorrectionDisabled()
-                                .textInputAutocapitalization(.never)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.purple.opacity(0.4), lineWidth: 1)
-                                )
-                        }
-
-                        // Repo-Pfad-Feld
-                        VStack(alignment: .leading, spacing: 6) {
-                            Label("Repository (owner/repo)", systemImage: "folder.fill")
-                                .font(.caption.bold())
-                                .foregroundColor(.gray)
-                            TextField("dein-user/mein-obsidian-vault", text: $repoPath)
-                                .padding(14)
-                                .background(Color.white.opacity(0.08))
-                                .cornerRadius(12)
-                                .foregroundColor(.white)
-                                .autocorrectionDisabled()
-                                .textInputAutocapitalization(.never)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.purple.opacity(0.4), lineWidth: 1)
-                                )
-                        }
-
-                        // Fehlermeldung
                         if let err = errorMsg {
-                            HStack {
+                            HStack(spacing: 8) {
                                 Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundColor(.red)
+                                    .foregroundColor(.vbDanger)
+                                    .font(.system(size: 12))
                                 Text(err)
-                                    .foregroundColor(.red)
-                                    .font(.caption)
+                                    .foregroundColor(.vbDanger)
+                                    .font(.system(size: 12))
                             }
                             .padding(12)
-                            .background(Color.red.opacity(0.1))
-                            .cornerRadius(8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.vbDanger.opacity(0.10))
+                            .cornerRadius(10)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(Color.vbDanger.opacity(0.30), lineWidth: 1)
+                            )
                         }
 
-                        // Verbinden-Button
-                        Button {
-                            Task { await connect() }
-                        } label: {
+                        // Aurora CTA
+                        Button { Task { await connect() } } label: {
                             Group {
                                 if isLoading {
-                                    ProgressView().tint(.white)
+                                    ProgressView()
+                                        .tint(Color(red: 0.102, green: 0.039, blue: 0.227))
                                 } else {
                                     Text("Verbinden und laden")
-                                        .font(.headline)
+                                        .font(.system(size: 15, weight: .bold))
+                                        .tracking(-0.3)
                                 }
                             }
                             .frame(maxWidth: .infinity)
-                            .padding(16)
+                            .padding(.vertical, 15)
+                            .foregroundColor(Color(red: 0.102, green: 0.039, blue: 0.227))
                             .background(
                                 canConnect
-                                ? LinearGradient(colors: [.purple, .blue], startPoint: .leading, endPoint: .trailing)
-                                : LinearGradient(colors: [.gray], startPoint: .leading, endPoint: .trailing)
+                                ? LinearGradient(
+                                    colors: [.vbPink, .vbLavender, .vbPeriwinkle],
+                                    startPoint: .leading, endPoint: .trailing
+                                  )
+                                : LinearGradient(
+                                    colors: [Color.vbFg4],
+                                    startPoint: .leading, endPoint: .trailing
+                                  )
                             )
-                            .foregroundColor(.white)
                             .cornerRadius(14)
+                            .shadow(color: canConnect ? Color.vbPink.opacity(0.45) : .clear,
+                                    radius: 14, y: 3)
                         }
                         .disabled(!canConnect || isLoading)
+                        .padding(.top, 4)
                     }
-                    .padding(20)
-                    .background(Color.white.opacity(0.05))
-                    .cornerRadius(20)
+                    .padding(22)
+                    .background(Color(red: 0.071, green: 0.031, blue: 0.149).opacity(0.60))
+                    .cornerRadius(22)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 20)
-                            .stroke(Color.purple.opacity(0.2), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 22)
+                            .stroke(Color.vbLavender.opacity(0.18), lineWidth: 1)
                     )
+                    .shadow(color: .black.opacity(0.55), radius: 20, y: 6)
                     .padding(.horizontal, 24)
 
-                    // Hinweis zu benötigten Token-Berechtigungen
-                    VStack(alignment: .leading, spacing: 4) {
+                    // Permission hint
+                    VStack(alignment: .leading, spacing: 5) {
                         Text("Token braucht folgende Berechtigung:")
-                            .font(.caption.bold())
-                            .foregroundColor(.gray)
-                        Text("• repo: Contents lesen und schreiben")
-                            .font(.caption)
-                            .foregroundColor(.gray.opacity(0.8))
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.vbFg4)
+                            .tracking(0.4)
+                        Text("· repo: Contents lesen und schreiben")
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundColor(.vbFg4)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 28)
-                    .padding(.bottom, 32)
+                    .padding(.top, 22)
+                    .padding(.bottom, 48)
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func inputField(
+        label: String, icon: String, placeholder: String,
+        text: Binding<String>, secure: Bool
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.system(size: 10))
+                    .foregroundColor(.vbLavender)
+                Text(label)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.vbFg3)
+                    .tracking(0.4)
+            }
+            Group {
+                if secure {
+                    SecureField(placeholder, text: text)
+                } else {
+                    TextField(placeholder, text: text)
+                }
+            }
+            .font(.system(size: 13, design: .monospaced))
+            .padding(14)
+            .foregroundColor(.vbFg1)
+            .background(Color.white.opacity(0.05))
+            .cornerRadius(12)
+            .autocorrectionDisabled()
+            .textInputAutocapitalization(.never)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.vbLavender.opacity(0.22), lineWidth: 1)
+            )
         }
     }
 
@@ -156,14 +187,13 @@ struct SetupView: View {
         !repoPath.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
-    // Verbindet mit GitHub, validiert Credentials und navigiert zur Brain-View
     private func connect() async {
         errorMsg  = nil
         isLoading = true
         do {
             try await viewModel.setup(
-                token: token.trimmingCharacters(in: .whitespaces),
-                repo:  repoPath.trimmingCharacters(in: .whitespaces)
+                token:   token.trimmingCharacters(in: .whitespaces),
+                repo:    repoPath.trimmingCharacters(in: .whitespaces)
             )
         } catch {
             errorMsg = error.localizedDescription
