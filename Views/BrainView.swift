@@ -287,7 +287,7 @@ private struct ToolbarPillView: View {
     }
 }
 
-// MARK: – 2D Graph
+// MARK: – 3D Graph
 
 struct BrainGraphView: View {
     let nodes: [GraphNode]
@@ -297,9 +297,11 @@ struct BrainGraphView: View {
     let onNodeLongPressed: (String) -> Void
 
     @State private var zoom: CGFloat = 1.0
-    @State private var pan:  CGSize  = .zero
     @GestureState private var pinchDelta: CGFloat = 1.0
-    @GestureState private var dragDelta:  CGSize  = .zero
+    // User-controlled rotation (drag to spin)
+    @State private var userRotY: Double = 0
+    @State private var userRotX: Double = 0
+    @GestureState private var dragDelta: CGSize = .zero
 
     private var sz: CGSize { UIScreen.main.bounds.size }
 
@@ -314,84 +316,143 @@ struct BrainGraphView: View {
     }
 
     var body: some View {
-        ZStack {
-            Canvas { ctx, canvasSize in
-                let pm        = makePosMap(size: canvasSize)
-                let connected = connectedIDs
-                let selID     = selectedNodeID
+        TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { tl in
+            let t     = tl.date.timeIntervalSinceReferenceDate
+            // Auto-drift + user input on both axes
+            let rotY  = t * 0.032 + userRotY + dragDelta.width  * 0.004
+            let rotX  = 0.22 + 0.06 * sin(t * 0.09)           // gentle tilt oscillation
+                      + userRotX + dragDelta.height * 0.003
+            let clampX = max(-0.55, min(0.55, rotX))
 
-                for edge in edges {
-                    guard let a = pm[edge.sourceID], let b = pm[edge.targetID] else { continue }
-                    let isLit = selID.map { edge.sourceID == $0 || edge.targetID == $0 } ?? false
-                    let alpha: Double = selID == nil ? 0.20 : (isLit ? 0.65 : 0.05)
-                    let edgeColor = isLit ? Color.vbLavender : Color.vbPink
-                    var path = Path()
-                    path.move(to: a)
-                    path.addLine(to: b)
-                    ctx.stroke(path,
-                               with: .color(edgeColor.opacity(alpha)),
-                               lineWidth: isLit ? 1.5 : 1.0)
+            let projected = computeProjections(rotY: rotY, rotX: clampX, size: sz)
+            let idToPos   = Dictionary(uniqueKeysWithValues: projected.map { ($0.id, $0) })
+            let connected = connectedIDs
+            let selID     = selectedNodeID
+
+            ZStack {
+                // Edges + labels
+                Canvas { ctx, _ in
+                    for edge in edges {
+                        guard let a = idToPos[edge.sourceID],
+                              let b = idToPos[edge.targetID] else { continue }
+                        let isLit = selID.map { edge.sourceID == $0 || edge.targetID == $0 } ?? false
+                        let baseAlpha: Double = selID == nil ? 0.22 : (isLit ? 0.70 : 0.04)
+                        let depthFade = Double((a.depthScale + b.depthScale) / 2.0)
+                        let edgeColor = isLit ? Color.vbLavender : Color.vbPink
+                        var path = Path()
+                        path.move(to: a.screenPos)
+                        path.addLine(to: b.screenPos)
+                        ctx.stroke(path,
+                                   with: .color(edgeColor.opacity(baseAlpha * depthFade)),
+                                   lineWidth: isLit ? 1.5 : 0.8)
+                    }
+                    // Labels only for close/selected nodes
+                    for item in projected where !item.isDimmed(selID: selID, connected: connected) {
+                        guard item.depthScale > 0.78 else { continue }
+                        let r = baseRadius(item.node) * item.depthScale
+                        let label = ctx.resolve(
+                            Text(String(item.node.title.prefix(13)))
+                                .font(.system(size: max(7, 9 * item.depthScale), weight: .medium))
+                        )
+                        ctx.draw(label,
+                                 at: CGPoint(x: item.screenPos.x, y: item.screenPos.y + r + 6),
+                                 anchor: .top)
+                    }
                 }
+                .foregroundStyle(Color.vbFg2.opacity(0.70))
+                .allowsHitTesting(false)
 
-                for node in nodes {
-                    guard let pt = pm[node.id] else { continue }
-                    let isDim = selID != nil && node.id != selID && !connected.contains(node.id)
-                    if isDim { continue }
-                    let r = nodeRadius(node)
-                    let label = ctx.resolve(
-                        Text(String(node.title.prefix(14)))
-                            .font(.system(size: 9, weight: .medium))
+                // Nodes rendered back-to-front (painter's algorithm)
+                ForEach(projected.sorted { $0.z < $1.z }) { item in
+                    let isSelected = item.id == selID
+                    let isNeighbor = connected.contains(item.id)
+                    let isDim      = selID != nil && !isSelected && !isNeighbor
+                    GirlyNodeView(
+                        node: item.node,
+                        isSelected: isSelected,
+                        isNeighbor: isNeighbor,
+                        isDim: isDim,
+                        depthScale: item.depthScale,
+                        onTap: onNodeTapped,
+                        onLongPress: onNodeLongPressed
                     )
-                    ctx.draw(label, at: CGPoint(x: pt.x, y: pt.y + r + 7), anchor: .top)
+                    .opacity(item.depthOpacity)
+                    .position(item.screenPos)
                 }
-            }
-            .foregroundStyle(Color.vbFg2.opacity(0.70))
-            .allowsHitTesting(false)
-
-            ForEach(nodes) { node in
-                let isSelected = node.id == selectedNodeID
-                let isNeighbor = connectedIDs.contains(node.id)
-                let isDim      = selectedNodeID != nil && !isSelected && !isNeighbor
-                GirlyNodeView(
-                    node: node,
-                    isSelected: isSelected, isNeighbor: isNeighbor, isDim: isDim,
-                    onTap: onNodeTapped, onLongPress: onNodeLongPressed
-                )
-                .position(nodePos(node, size: sz))
             }
         }
         .frame(width: sz.width, height: sz.height)
         .scaleEffect(zoom * pinchDelta, anchor: .center)
-        .offset(x: pan.width + dragDelta.width, y: pan.height + dragDelta.height)
         .gesture(
             MagnificationGesture()
                 .updating($pinchDelta) { v, s, _ in s = v }
-                .onEnded { v in zoom = max(0.3, min(5.0, zoom * v)) }
+                .onEnded { v in zoom = max(0.25, min(5.0, zoom * v)) }
                 .simultaneously(with:
-                    DragGesture(minimumDistance: 8)
+                    DragGesture(minimumDistance: 5)
                         .updating($dragDelta) { v, s, _ in s = v.translation }
                         .onEnded { v in
-                            pan.width  += v.translation.width
-                            pan.height += v.translation.height
+                            userRotY += v.translation.width  * 0.004
+                            userRotX  = max(-0.55, min(0.55,
+                                userRotX + v.translation.height * 0.003))
                         }
                 )
         )
     }
 
-    private func nodePos(_ node: GraphNode, size: CGSize) -> CGPoint {
-        let s = min(size.width, size.height) / 13.0
-        return CGPoint(
-            x: size.width  / 2 + CGFloat(node.position.x) * s,
-            y: size.height / 2 - CGFloat(node.position.y) * s
-        )
+    // MARK: Projected node data
+
+    private struct ProjectedNode: Identifiable {
+        let id: String
+        let node: GraphNode
+        let screenPos: CGPoint
+        let depthScale: CGFloat
+        let depthOpacity: Double
+        let z: Float
+
+        func isDimmed(selID: String?, connected: Set<String>) -> Bool {
+            guard let s = selID else { return false }
+            return id != s && !connected.contains(id)
+        }
     }
 
-    private func makePosMap(size: CGSize) -> [String: CGPoint] {
-        Dictionary(uniqueKeysWithValues: nodes.map { ($0.id, nodePos($0, size: size)) })
+    private func computeProjections(rotY: Double, rotX: Double, size: CGSize) -> [ProjectedNode] {
+        nodes.map { node in
+            let p = rotate3D(node.position, rotY: rotY, rotX: rotX)
+            let (pos, dScale) = perspectiveProject(p, size: size)
+            // Opacity: close nodes fully visible, far nodes slightly faded
+            let depthOpacity = Double(max(0.45, min(1.0, 0.60 + 0.40 * (1.0 - (Double(p.z) + 5.5) / 11.0))))
+            return ProjectedNode(id: node.id, node: node, screenPos: pos,
+                                 depthScale: dScale, depthOpacity: depthOpacity, z: p.z)
+        }
     }
 
-    private func nodeRadius(_ node: GraphNode) -> CGFloat {
-        CGFloat(max(12, min(26, 12 + Double(node.connectionCount) * 2.0)))
+    // Rotate SCNVector3 around Y then X axis
+    private func rotate3D(_ pos: SCNVector3, rotY: Double, rotX: Double) -> SIMD3<Float> {
+        let cosY = Float(cos(rotY)), sinY = Float(sin(rotY))
+        let x1   = pos.x * cosY + pos.z * sinY
+        let z1   = -pos.x * sinY + pos.z * cosY
+
+        let cosX = Float(cos(rotX)), sinX = Float(sin(rotX))
+        let y2   = pos.y * cosX - z1 * sinX
+        let z2   = pos.y * sinX + z1 * cosX
+
+        return SIMD3<Float>(x1, y2, z2)
+    }
+
+    // Perspective projection: closer nodes appear larger and positioned with parallax
+    private func perspectiveProject(_ p: SIMD3<Float>, size: CGSize) -> (CGPoint, CGFloat) {
+        let base: CGFloat = min(size.width, size.height) / 14.0
+        let cam:  Float   = 22.0              // virtual camera distance
+        let dz            = cam + p.z         // depth (always positive with cam=22, z in [-5,5])
+        let f             = CGFloat(cam / max(dz, 0.5))   // perspective factor
+        let x = size.width  / 2 + CGFloat(p.x) * base * f
+        let y = size.height / 2 - CGFloat(p.y) * base * f
+        // depthScale drives node size: close = ~1.27×, far = ~0.81×
+        return (CGPoint(x: x, y: y), max(0.5, min(1.5, f)))
+    }
+
+    private func baseRadius(_ node: GraphNode) -> CGFloat {
+        CGFloat(max(10, min(24, 10 + Double(node.connectionCount) * 1.8)))
     }
 }
 
@@ -402,6 +463,7 @@ private struct GirlyNodeView: View {
     let isSelected: Bool
     let isNeighbor: Bool
     let isDim: Bool
+    let depthScale: CGFloat   // perspective size modifier (0.5 – 1.5)
     let onTap:       (String) -> Void
     let onLongPress: (String) -> Void
 
@@ -412,7 +474,7 @@ private struct GirlyNodeView: View {
     private let haptic = UIImpactFeedbackGenerator(style: .medium)
 
     private var baseR: CGFloat {
-        CGFloat(max(10, min(24, 10 + Double(node.connectionCount) * 1.8)))
+        CGFloat(max(10, min(24, 10 + Double(node.connectionCount) * 1.8))) * depthScale
     }
     private var r: CGFloat { isSelected ? baseR * 1.5 : baseR }
 
