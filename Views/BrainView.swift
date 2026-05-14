@@ -113,6 +113,7 @@ struct BrainView: View {
     @State private var showLongPress   = false
     @State private var showStatusIndicators = true
     @State private var showCaptureSheet = false
+    @State private var showSearchSheet = false
     @State private var captureToast: CaptureToast?
 
     var body: some View {
@@ -172,6 +173,7 @@ struct BrainView: View {
                 },
                 onCapture: { showCaptureSheet = true },
                 onCaptureToday: { Task { await openTodayNote() } },
+                onSearch: { showSearchSheet = true },
                 onRefresh: { Task { await viewModel.loadNotes() } },
                 onLogout:  { viewModel.logout() }
             )
@@ -244,6 +246,15 @@ struct BrainView: View {
                 onCreated: { _ in showToast("Note erstellt") },
                 onError: { message in showToast(message, isError: true) }
             )
+            .environmentObject(viewModel)
+            .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $showSearchSheet) {
+            SearchSheet { id in
+                withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
+                    selectedNoteID = id
+                }
+            }
             .environmentObject(viewModel)
             .presentationDetents([.medium, .large])
         }
@@ -355,6 +366,7 @@ private struct ToolbarPillView: View {
     let onToggleStatusIndicators: () -> Void
     let onCapture: () -> Void
     let onCaptureToday: () -> Void
+    let onSearch: () -> Void
     let onRefresh: () -> Void
     let onLogout:  () -> Void
 
@@ -377,6 +389,7 @@ private struct ToolbarPillView: View {
             Spacer()
             captureButton
             pillButton(icon: showStatusIndicators ? "circlebadge.fill" : "circlebadge", danger: false, action: onToggleStatusIndicators)
+            pillButton(icon: "magnifyingglass", danger: false, action: onSearch)
             pillButton(icon: "arrow.clockwise", danger: false, action: onRefresh)
                 .disabled(isLoading)
             pillButton(icon: "person.slash", danger: true, action: onLogout)
@@ -1424,7 +1437,7 @@ private struct StatusIndicatorView: View {
     }
 }
 
-private func nodeTypeColor(_ type: String?) -> Color? {
+func nodeTypeColor(_ type: String?) -> Color? {
     switch type?.lowercased() {
     case "project": return .vbPink
     case "concept": return .vbLavender
@@ -1437,7 +1450,7 @@ private func nodeTypeColor(_ type: String?) -> Color? {
     }
 }
 
-private func statusColor(_ status: String?) -> Color {
+func statusColor(_ status: String?) -> Color {
     switch status?.lowercased() {
     case "wip": return .goldAccent
     case "done": return .vbSuccess
