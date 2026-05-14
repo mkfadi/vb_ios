@@ -31,6 +31,8 @@ extension Color {
     static let vbDanger     = Color(red: 0.906, green: 0.153, blue: 0.314)
 }
 
+private let hubIncomingThreshold = 5
+
 // MARK: – Brand mark, shared across screens
 
 struct PearlView: View {
@@ -173,12 +175,16 @@ struct BrainView: View {
         }
         .overlay(alignment: .bottom) {
             if !showLongPress,
-               let node = selectedNode,
-               let connected = selectedNodeConnections {
+               let node = selectedNode {
                 NodeInsightPanelView(
                     node: node,
-                    connectedCount: connected.count,
-                    connectedTitles: connected.map(\.title).sorted(),
+                    outgoingNodes: selectedOutgoingNodes,
+                    incomingNodes: selectedIncomingNodes,
+                    onSelectNode: { id in
+                        withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
+                            selectedNoteID = id
+                        }
+                    },
                     onOpen: { showNoteSheet = true },
                     onCopyWikilink: { UIPasteboard.general.string = "[[\(node.title)]]" },
                     onClose: {
@@ -197,12 +203,9 @@ struct BrainView: View {
             if showLongPress,
                let nodeID = longPressNodeID,
                let node   = viewModel.graphModel.nodes.first(where: { $0.id == nodeID }) {
-                let degree = viewModel.graphModel.edges.filter {
-                    $0.sourceID == nodeID || $0.targetID == nodeID
-                }.count
                 LongPressMenuView(
                     node: node,
-                    connectedCount: degree,
+                    connectedCount: node.connectionCount,
                     onOpen: {
                         withAnimation(.spring(duration: 0.28)) { showLongPress = false }
                         showNoteSheet = true
@@ -236,14 +239,20 @@ struct BrainView: View {
         return viewModel.graphModel.nodes.first { $0.id == selectedNoteID }
     }
 
-    private var selectedNodeConnections: [GraphNode]? {
-        guard let selectedNoteID else { return nil }
-        var ids = Set<String>()
-        for edge in viewModel.graphModel.edges {
-            if edge.sourceID == selectedNoteID { ids.insert(edge.targetID) }
-            if edge.targetID == selectedNoteID { ids.insert(edge.sourceID) }
-        }
-        return viewModel.graphModel.nodes.filter { ids.contains($0.id) }
+    private var selectedOutgoingNodes: [GraphNode] {
+        guard let node = selectedNode else { return [] }
+        return nodes(for: node.outgoingLinks)
+    }
+
+    private var selectedIncomingNodes: [GraphNode] {
+        guard let node = selectedNode else { return [] }
+        return nodes(for: node.incomingLinks)
+    }
+
+    private func nodes(for ids: Set<String>) -> [GraphNode] {
+        viewModel.graphModel.nodes
+            .filter { ids.contains($0.id) }
+            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
 
     private var emptyState: some View {
@@ -321,8 +330,9 @@ private struct ToolbarPillView: View {
 
 private struct NodeInsightPanelView: View {
     let node: GraphNode
-    let connectedCount: Int
-    let connectedTitles: [String]
+    let outgoingNodes: [GraphNode]
+    let incomingNodes: [GraphNode]
+    let onSelectNode: (String) -> Void
     let onOpen: () -> Void
     let onCopyWikilink: () -> Void
     let onClose: () -> Void
@@ -341,7 +351,7 @@ private struct NodeInsightPanelView: View {
                         .font(.system(size: 19, weight: .bold, design: .rounded))
                         .foregroundColor(.vbFg1)
                         .lineLimit(1)
-                    Text("\(connectedCount) Synapsen · \(node.connectionCount) Impulse")
+                    Text("\(outgoingNodes.count) raus · \(incomingNodes.count) rein")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(.vbFg3)
                         .monospacedDigit()
@@ -367,23 +377,8 @@ private struct NodeInsightPanelView: View {
                 frontmatterChips
             }
 
-            if !connectedTitles.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 7) {
-                        ForEach(connectedTitles.prefix(8), id: \.self) { title in
-                            Text(title)
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(.vbFg2)
-                                .lineLimit(1)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(Color.vbDeep.opacity(0.88))
-                                .clipShape(Capsule())
-                                .overlay(Capsule().stroke(Color.vbPink.opacity(0.16), lineWidth: 1))
-                        }
-                    }
-                }
-            }
+            linkSection(title: "Verweist auf", nodes: outgoingNodes, color: .vbPink)
+            linkSection(title: "Wird referenziert von", nodes: incomingNodes, color: .vbLavender)
         }
         .padding(14)
         .background {
@@ -401,6 +396,49 @@ private struct NodeInsightPanelView: View {
                         )
                 )
                 .shadow(color: .vbPink.opacity(0.16), radius: 22, y: 8)
+        }
+    }
+
+    @ViewBuilder
+    private func linkSection(title: String, nodes: [GraphNode], color: Color) -> some View {
+        if !nodes.isEmpty {
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 6) {
+                    Text(title)
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundColor(.vbFg2)
+                    Text("\(nodes.count)")
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .foregroundColor(color)
+                        .monospacedDigit()
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(color.opacity(0.12))
+                        .clipShape(Capsule())
+                    Spacer()
+                }
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 7) {
+                        ForEach(nodes.prefix(10)) { linkedNode in
+                            Button {
+                                onSelectNode(linkedNode.id)
+                            } label: {
+                                Text(linkedNode.title)
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(.vbFg2)
+                                    .lineLimit(1)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(color.opacity(0.12))
+                                    .clipShape(Capsule())
+                                    .overlay(Capsule().stroke(color.opacity(0.28), lineWidth: 1))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -470,13 +508,9 @@ struct BrainGraphView: View {
     @GestureState private var dragDelta: CGSize = .zero
 
     private var connectedIDs: Set<String> {
-        guard let sel = selectedNodeID else { return [] }
-        var ids = Set<String>()
-        for e in edges {
-            if e.sourceID == sel { ids.insert(e.targetID) }
-            if e.targetID == sel { ids.insert(e.sourceID) }
-        }
-        return ids
+        guard let sel = selectedNodeID,
+              let node = nodes.first(where: { $0.id == sel }) else { return [] }
+        return node.outgoingLinks.union(node.incomingLinks)
     }
 
     var body: some View {
@@ -814,6 +848,12 @@ struct BrainGraphView: View {
         case foreground
     }
 
+    private enum FocusedEdgeKind {
+        case outgoing
+        case incoming
+        case bidirectional
+    }
+
     private func drawConstellationEdges(
         ctx: inout GraphicsContext,
         projected: [ProjectedNode],
@@ -825,28 +865,30 @@ struct BrainGraphView: View {
         for edge in edges {
             guard let a = idToPos[edge.sourceID],
                   let b = idToPos[edge.targetID] else { continue }
-            let isLit = selectedID.map { edge.sourceID == $0 || edge.targetID == $0 } ?? false
+
+            let focusedKind = edgeKind(edge, selectedID: selectedID)
+            let isLit = focusedKind != nil && selectedID != nil
             if selectedID != nil {
                 if layer == .background && isLit { continue }
                 if layer == .foreground && !isLit { continue }
+                if focusedKind == .bidirectional && edge.targetID == selectedID { continue }
             } else if layer == .foreground {
                 continue
             }
-            let baseAlpha: Double = selectedID == nil ? 0.20 : (isLit ? 0.82 : 0.030)
-            let depthFade = Double((a.depthScale + b.depthScale) / 2.0)
-            let edgeColor = isLit ? Color.vbLavender : Color.vbPink
-            var path = Path()
-            path.move(to: a.screenPos)
-            path.addLine(to: b.screenPos)
 
-            if isLit {
-                ctx.stroke(path,
-                           with: .color(edgeColor.opacity(0.18 * depthFade)),
-                           lineWidth: 7.0)
-            }
-            ctx.stroke(path,
-                       with: .color(edgeColor.opacity(baseAlpha * depthFade)),
-                       lineWidth: isLit ? 1.7 : 0.75)
+            let kind = focusedKind ?? .bidirectional
+            let depthFade = Double((a.depthScale + b.depthScale) / 2.0)
+            let alpha: Double = selectedID == nil ? 0.18 : (isLit ? 0.86 : 0.030)
+            let color = edgeColor(kind: kind, isFocused: isLit)
+            drawEdge(
+                ctx: &ctx,
+                from: a.screenPos,
+                to: b.screenPos,
+                kind: kind,
+                color: color,
+                alpha: alpha * depthFade,
+                isFocused: isLit
+            )
         }
 
         guard layer == .foreground || selectedID == nil else { return }
@@ -865,6 +907,87 @@ struct BrainGraphView: View {
                      at: CGPoint(x: item.screenPos.x, y: item.screenPos.y + r + 8),
                      anchor: .top)
         }
+    }
+
+    private func edgeKind(_ edge: GraphEdge, selectedID: String?) -> FocusedEdgeKind? {
+        guard let selectedID else { return .bidirectional }
+        guard edge.sourceID == selectedID || edge.targetID == selectedID,
+              let focusedNode = nodes.first(where: { $0.id == selectedID }) else { return nil }
+
+        if edge.sourceID == selectedID {
+            return focusedNode.incomingLinks.contains(edge.targetID) ? .bidirectional : .outgoing
+        }
+        if edge.targetID == selectedID {
+            return focusedNode.outgoingLinks.contains(edge.sourceID) ? .bidirectional : .incoming
+        }
+        return nil
+    }
+
+    private func edgeColor(kind: FocusedEdgeKind, isFocused: Bool) -> Color {
+        guard isFocused else { return .vbPink }
+        switch kind {
+        case .outgoing: return .vbPink
+        case .incoming: return .vbLavender
+        case .bidirectional: return .vbMagenta
+        }
+    }
+
+    private func drawEdge(
+        ctx: inout GraphicsContext,
+        from start: CGPoint,
+        to end: CGPoint,
+        kind: FocusedEdgeKind,
+        color: Color,
+        alpha: Double,
+        isFocused: Bool
+    ) {
+        guard isFocused else {
+            var path = Path()
+            path.move(to: start)
+            path.addLine(to: end)
+            ctx.stroke(path, with: .color(color.opacity(alpha)), style: StrokeStyle(lineWidth: 0.75, lineCap: .round))
+            return
+        }
+
+        switch kind {
+        case .outgoing:
+            drawTaperedLine(ctx: &ctx, from: start, to: end, color: color, alpha: alpha, startWidth: 3.2, endWidth: 0.8)
+        case .incoming:
+            drawTaperedLine(ctx: &ctx, from: start, to: end, color: color, alpha: alpha, startWidth: 0.8, endWidth: 3.2)
+        case .bidirectional:
+            var glow = Path()
+            glow.move(to: start)
+            glow.addLine(to: end)
+            ctx.stroke(glow, with: .color(color.opacity(0.20 * alpha)), style: StrokeStyle(lineWidth: 8.0, lineCap: .round))
+            ctx.stroke(glow, with: .color(color.opacity(alpha)), style: StrokeStyle(lineWidth: 2.4, lineCap: .round))
+        }
+    }
+
+    private func drawTaperedLine(
+        ctx: inout GraphicsContext,
+        from start: CGPoint,
+        to end: CGPoint,
+        color: Color,
+        alpha: Double,
+        startWidth: CGFloat,
+        endWidth: CGFloat
+    ) {
+        let segments = 8
+        for i in 0..<segments {
+            let t0 = CGFloat(i) / CGFloat(segments)
+            let t1 = CGFloat(i + 1) / CGFloat(segments)
+            let p0 = interpolate(start, end, t0)
+            let p1 = interpolate(start, end, t1)
+            let width = startWidth + (endWidth - startWidth) * ((t0 + t1) / 2)
+            var path = Path()
+            path.move(to: p0)
+            path.addLine(to: p1)
+            ctx.stroke(path, with: .color(color.opacity(alpha)), style: StrokeStyle(lineWidth: width, lineCap: .round))
+        }
+    }
+
+    private func interpolate(_ a: CGPoint, _ b: CGPoint, _ t: CGFloat) -> CGPoint {
+        CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t)
     }
 
     private func phaseSeed(_ value: String) -> Double {
@@ -955,6 +1078,7 @@ private struct GirlyNodeView: View {
 
     @State private var rippleScale:   CGFloat = 0.8
     @State private var rippleOpacity: Double  = 0.0
+    @State private var hubPulse: Double = 0.0
 
     private let haptic = UIImpactFeedbackGenerator(style: .medium)
 
@@ -1001,6 +1125,13 @@ private struct GirlyNodeView: View {
 
     var body: some View {
         ZStack {
+            if node.incomingLinks.count >= hubIncomingThreshold {
+                Circle()
+                    .stroke(Color.vbLavender.opacity(0.24 + hubPulse * 0.26), lineWidth: 1.2)
+                    .frame(width: r * (4.1 + hubPulse * 0.55), height: r * (4.1 + hubPulse * 0.55))
+                    .blur(radius: hubPulse * 0.8)
+            }
+
             if isSelected || isNeighbor {
                 Circle()
                     .stroke(
@@ -1070,12 +1201,14 @@ private struct GirlyNodeView: View {
                 )
 
             if node.connectionCount > 0 {
-                Text("\(min(node.connectionCount, 99))")
-                    .font(.system(size: max(8, r * 0.45), weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundColor(.vbVoid.opacity(isSelected ? 0.72 : 0.58))
-                    .offset(x: r * 0.02, y: r * 0.04)
-                    .opacity(isSelected || isNeighbor || node.connectionCount > 3 ? 1 : 0)
+                DirectionBadgeView(
+                    outgoingCount: node.outgoingLinks.count,
+                    incomingCount: node.incomingLinks.count,
+                    radius: r,
+                    isProminent: isSelected || isNeighbor
+                )
+                .offset(x: r * 0.02, y: r * 0.04)
+                .opacity(isSelected || isNeighbor || node.connectionCount > 3 ? 1 : 0)
             }
 
             if showStatusIndicator, let status {
@@ -1106,6 +1239,11 @@ private struct GirlyNodeView: View {
         }
         .onAppear {
             haptic.prepare()
+            if node.incomingLinks.count >= hubIncomingThreshold {
+                withAnimation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true)) {
+                    hubPulse = 1.0
+                }
+            }
         }
     }
 
@@ -1116,6 +1254,37 @@ private struct GirlyNodeView: View {
             rippleScale   = 2.8
             rippleOpacity = 0.0
         }
+    }
+}
+
+private struct DirectionBadgeView: View {
+    let outgoingCount: Int
+    let incomingCount: Int
+    let radius: CGFloat
+    let isProminent: Bool
+
+    var body: some View {
+        HStack(spacing: max(1, radius * 0.05)) {
+            if outgoingCount > 0 {
+                Text("\(min(outgoingCount, 99))")
+                    .foregroundColor(.vbPink.opacity(isProminent ? 0.90 : 0.72))
+            }
+            if outgoingCount > 0 && incomingCount > 0 {
+                Text("·")
+                    .foregroundColor(.vbFg3.opacity(0.64))
+            }
+            if incomingCount > 0 {
+                Text("\(min(incomingCount, 99))")
+                    .foregroundColor(.vbLavender.opacity(isProminent ? 0.92 : 0.76))
+            }
+        }
+        .font(.system(size: max(7, radius * 0.34), weight: .heavy, design: .rounded))
+        .monospacedDigit()
+        .padding(.horizontal, max(3, radius * 0.18))
+        .padding(.vertical, max(1, radius * 0.06))
+        .background(Color.white.opacity(isProminent ? 0.74 : 0.56))
+        .clipShape(Capsule())
+        .shadow(color: Color.white.opacity(0.24), radius: 2)
     }
 }
 

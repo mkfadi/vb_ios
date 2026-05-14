@@ -10,6 +10,8 @@ struct GraphNode: Identifiable, Sendable {
     let title: String        // Anzeigename
     var position: SCNVector3 // Berechnete Position in der 3D-Szene
     var connectionCount: Int // Anzahl eingehender + ausgehender Links
+    var outgoingLinks: Set<String>
+    var incomingLinks: Set<String>
     var frontmatter: NoteFrontmatter?
 }
 
@@ -46,17 +48,24 @@ class GraphModel: ObservableObject {
             uniquingKeysWith: { first, _ in first }
         )
 
-        // Kanten aufbauen + Verbindungszähler pflegen
+        // Kanten aufbauen und Richtung behalten: Note A -> Note B, wenn A einen [[B]]-Wikilink hat.
         var edgeList: [GraphEdge] = []
-        var connectionCounts = [Int](repeating: 0, count: notes.count)
+        var edgePairs = Set<String>()
+        var outgoingLinkSets = [Set<String>](repeating: [], count: notes.count)
+        var incomingLinkSets = [Set<String>](repeating: [], count: notes.count)
 
         for (i, note) in notes.enumerated() {
             for link in note.links {
                 let key = link.lowercased()
                 guard let j = nameToIndex[key], j != i else { continue }
-                edgeList.append(GraphEdge(sourceID: note.id, targetID: notes[j].id))
-                connectionCounts[i] += 1
-                connectionCounts[j] += 1
+                let targetID = notes[j].id
+                guard outgoingLinkSets[i].insert(targetID).inserted else { continue }
+
+                incomingLinkSets[j].insert(note.id)
+                let edgeKey = "\(note.id)→\(targetID)"
+                if edgePairs.insert(edgeKey).inserted {
+                    edgeList.append(GraphEdge(sourceID: note.id, targetID: targetID))
+                }
             }
         }
 
@@ -124,7 +133,9 @@ class GraphModel: ObservableObject {
                 id: note.id,
                 title: note.name,
                 position: SCNVector3(p.x, p.y, p.z),
-                connectionCount: connectionCounts[i],
+                connectionCount: outgoingLinkSets[i].count + incomingLinkSets[i].count,
+                outgoingLinks: outgoingLinkSets[i],
+                incomingLinks: incomingLinkSets[i],
                 frontmatter: note.frontmatter
             )
         }
