@@ -18,6 +18,7 @@
 		B00100000000000000000009 /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00200000000000000000009 /* SetupView.swift */; };
 		B00100000000000000000010 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B00200000000000000000010 /* Assets.xcassets */; };
 		B00100000000000000000011 /* FrontmatterParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00200000000000000000011 /* FrontmatterParser.swift */; };
+		B00100000000000000000012 /* CaptureSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00200000000000000000012 /* CaptureSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,6 +33,7 @@
 		B00200000000000000000009 /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
 		B00200000000000000000010 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B00200000000000000000011 /* FrontmatterParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrontmatterParser.swift; sourceTree = "<group>"; };
+		B00200000000000000000012 /* CaptureSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSheet.swift; sourceTree = "<group>"; };
 		B00300000000000000000001 /* vb_ios.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = vb_ios.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -92,6 +94,7 @@
 				B00200000000000000000007 /* BrainView.swift */,
 				B00200000000000000000008 /* NoteView.swift */,
 				B00200000000000000000009 /* SetupView.swift */,
+				B00200000000000000000012 /* CaptureSheet.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -175,6 +178,7 @@
 				B00100000000000000000008 /* NoteView.swift in Sources */,
 				B00100000000000000000009 /* SetupView.swift in Sources */,
 				B00100000000000000000011 /* FrontmatterParser.swift in Sources */,
+				B00100000000000000000012 /* CaptureSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

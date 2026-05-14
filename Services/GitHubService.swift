@@ -50,6 +50,11 @@ private struct UpdateRequest: Encodable {
     let sha:     String  // aktueller SHA der Datei – für optimistisches Locking
 }
 
+private struct CreateRequest: Encodable {
+    let message: String
+    let content: String
+}
+
 private struct UpdateResponse: Decodable {
     struct FileInfo: Decodable { let sha: String }
     let content: FileInfo
@@ -246,6 +251,23 @@ actor GitHubService {
                 url: item.html_url.flatMap(URL.init(string:))
             )
         }
+    }
+
+    // Erstellt eine neue Markdown-Notiz als GitHub Commit (PUT /contents ohne SHA)
+    func createNote(path: String, content: String, message: String) async throws -> String {
+        let encoded = path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? path
+        var req     = try request("/repos/\(owner)/\(repo)/contents/\(encoded)", method: "PUT")
+
+        guard let contentData = content.data(using: .utf8) else { throw GitHubError.encodingError }
+        let body = CreateRequest(
+            message: message,
+            content: contentData.base64EncodedString()
+        )
+        req.httpBody = try JSONEncoder().encode(body)
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let resp: UpdateResponse = try await perform(req)
+        return resp.content.sha
     }
 
     // Speichert eine geänderte Notiz als neuen Commit auf GitHub (PUT /contents)

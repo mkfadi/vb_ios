@@ -112,6 +112,8 @@ struct BrainView: View {
     @State private var longPressNodeID: String?
     @State private var showLongPress   = false
     @State private var showStatusIndicators = true
+    @State private var showCaptureSheet = false
+    @State private var captureToast: CaptureToast?
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -168,10 +170,20 @@ struct BrainView: View {
                         showStatusIndicators.toggle()
                     }
                 },
+                onCapture: { showCaptureSheet = true },
+                onCaptureToday: { Task { await openTodayNote() } },
                 onRefresh: { Task { await viewModel.loadNotes() } },
                 onLogout:  { viewModel.logout() }
             )
             .zIndex(20)
+        }
+        .overlay(alignment: .top) {
+            if let captureToast {
+                CaptureToastView(toast: captureToast)
+                    .padding(.top, 112)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .zIndex(40)
+            }
         }
         .overlay(alignment: .bottom) {
             if !showLongPress,
@@ -227,6 +239,14 @@ struct BrainView: View {
                 NoteView(noteID: id).environmentObject(viewModel)
             }
         }
+        .sheet(isPresented: $showCaptureSheet) {
+            CaptureSheet(
+                onCreated: { _ in showToast("Note erstellt") },
+                onError: { message in showToast(message, isError: true) }
+            )
+            .environmentObject(viewModel)
+            .presentationDetents([.medium, .large])
+        }
         .task {
             if viewModel.graphModel.nodes.isEmpty {
                 await viewModel.loadNotes()
@@ -255,6 +275,35 @@ struct BrainView: View {
             .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
 
+    private func openTodayNote() async {
+        do {
+            let path = try await viewModel.createOrOpenTodayNote()
+            await MainActor.run {
+                selectedNoteID = path
+                showNoteSheet = true
+                showToast("Daily Note bereit")
+            }
+        } catch {
+            await MainActor.run { showToast(error.localizedDescription, isError: true) }
+        }
+    }
+
+    private func showToast(_ message: String, isError: Bool = false) {
+        let toast = CaptureToast(message: message, isError: isError)
+        withAnimation(.spring(response: 0.30, dampingFraction: 0.86)) {
+            captureToast = toast
+        }
+        Task {
+            try? await Task.sleep(for: .seconds(isError ? 3.2 : 2.1))
+            await MainActor.run {
+                guard captureToast?.id == toast.id else { return }
+                withAnimation(.easeOut(duration: 0.22)) {
+                    captureToast = nil
+                }
+            }
+        }
+    }
+
     private var emptyState: some View {
         VStack(spacing: 20) {
             PearlView(size: 72)
@@ -267,6 +316,35 @@ struct BrainView: View {
     }
 }
 
+private struct CaptureToast: Identifiable, Equatable {
+    let id = UUID()
+    let message: String
+    let isError: Bool
+}
+
+private struct CaptureToastView: View {
+    let toast: CaptureToast
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: toast.isError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(toast.isError ? .vbDanger : .vbSuccess)
+            Text(toast.message)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundColor(.vbFg1)
+                .lineLimit(2)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(Color.white.opacity(0.94))
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke((toast.isError ? Color.vbDanger : Color.vbSuccess).opacity(0.24), lineWidth: 1))
+        .shadow(color: Color.vbPink.opacity(0.14), radius: 18, y: 8)
+        .padding(.horizontal, 18)
+    }
+}
+
 // MARK: – Toolbar Pill
 
 private struct ToolbarPillView: View {
@@ -275,8 +353,12 @@ private struct ToolbarPillView: View {
     let isLoading: Bool
     let showStatusIndicators: Bool
     let onToggleStatusIndicators: () -> Void
+    let onCapture: () -> Void
+    let onCaptureToday: () -> Void
     let onRefresh: () -> Void
     let onLogout:  () -> Void
+
+    @State private var didLongPressCapture = false
 
     var body: some View {
         HStack(spacing: 10) {
@@ -293,6 +375,7 @@ private struct ToolbarPillView: View {
                     .monospacedDigit()
             }
             Spacer()
+            captureButton
             pillButton(icon: showStatusIndicators ? "circlebadge.fill" : "circlebadge", danger: false, action: onToggleStatusIndicators)
             pillButton(icon: "arrow.clockwise", danger: false, action: onRefresh)
                 .disabled(isLoading)
@@ -309,6 +392,38 @@ private struct ToolbarPillView: View {
         }
         .padding(.horizontal, 16)
         .padding(.top, 60)
+    }
+
+    private var captureButton: some View {
+        Button {
+            if didLongPressCapture {
+                didLongPressCapture = false
+                return
+            }
+            onCapture()
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(.vbPink)
+                .frame(width: 34, height: 34)
+                .background(
+                    Circle()
+                        .fill(Color.vbDeep.opacity(0.86))
+                        .overlay(Circle().stroke(Color.vbPink.opacity(0.22), lineWidth: 1))
+                )
+        }
+        .buttonStyle(.plain)
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.48)
+                .onEnded { _ in
+                    didLongPressCapture = true
+                    onCaptureToday()
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(650))
+                        await MainActor.run { didLongPressCapture = false }
+                    }
+                }
+        )
     }
 
     private func pillButton(icon: String, danger: Bool, action: @escaping () -> Void) -> some View {

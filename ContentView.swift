@@ -20,6 +20,15 @@ class AppViewModel: ObservableObject {
     private var githubService: GitHubService?
     private var graphModelSink: AnyCancellable?
 
+    var topLevelFolders: [String] {
+        let folders = Set(notes.keys.compactMap { path -> String? in
+            guard let first = path.split(separator: "/").first,
+                  path.contains("/") else { return nil }
+            return String(first)
+        })
+        return Array(folders).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+
     init() {
         // Beim Start gespeicherte Credentials laden und Service initialisieren
         if let token = KeychainService.loadToken(),
@@ -83,6 +92,49 @@ class AppViewModel: ObservableObject {
         isHistoryLoading = false
     }
 
+    // Erstellt eine neue Quick-Capture-Notiz und lädt den Graph danach neu.
+    func createCapturedNote(title: String, body: String, type: String, sendToInbox: Bool, folder: String?) async throws -> String {
+        guard let svc = githubService else { throw GitHubError.unauthorized }
+        let targetFolder = sendToInbox ? "inbox" : sanitizedFolder(folder)
+        let path = uniquePath(folder: targetFolder, title: title)
+        let content = noteContent(title: title, body: body, type: type)
+        _ = try await svc.createNote(path: path, content: content, message: captureCommitMessage(title: title, path: path))
+        await loadNotes()
+        await loadHistory()
+        return path
+    }
+
+    func createOrOpenTodayNote() async throws -> String {
+        guard let svc = githubService else { throw GitHubError.unauthorized }
+        let date = Self.isoDayFormatter.string(from: Date())
+        let path = "daily/\(date).md"
+
+        if notes[path] != nil { return path }
+
+        do {
+            let existing = try await svc.fetchNote(path: path)
+            notes[path] = existing
+            return path
+        } catch GitHubError.notFound {
+            let content = """
+            ---
+            updated: \(date)
+            status: wip
+            type: reference
+            ---
+
+            # \(date)
+
+            #daily
+
+            """
+            _ = try await svc.createNote(path: path, content: content, message: captureCommitMessage(title: date, path: path))
+            await loadNotes()
+            await loadHistory()
+            return path
+        }
+    }
+
     // Schickt eine geänderte Notiz zu GitHub und aktualisiert den lokalen Cache
     func updateNote(_ note: Note) async throws {
         guard let svc = githubService else { throw GitHubError.unauthorized }
@@ -123,6 +175,80 @@ class AppViewModel: ObservableObject {
         App: Synaptic Vault
         """
     }
+
+    private func captureCommitMessage(title: String, path: String) -> String {
+        """
+        capture: \(title.trimmingCharacters(in: .whitespacesAndNewlines))
+
+        Device: \(Self.deviceName)
+        System: \(Self.systemName)
+        Path: \(path)
+        App: Synaptic Vault
+        """
+    }
+
+    private func noteContent(title: String, body: String, type: String) -> String {
+        let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanBody = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        let date = Self.isoDayFormatter.string(from: Date())
+        let bodyBlock = cleanBody.isEmpty ? "" : "\n\n\(cleanBody)"
+        return """
+        ---
+        updated: \(date)
+        status: wip
+        type: \(type)
+        ---
+
+        # \(cleanTitle)\(bodyBlock)
+
+        """
+    }
+
+    private func uniquePath(folder: String, title: String) -> String {
+        let slug = Self.slugify(title)
+        let baseFolder = sanitizedFolder(folder)
+        let existing = Set(notes.keys.map { $0.lowercased() })
+        var candidate = "\(baseFolder)/\(slug).md"
+        var index = 2
+        while existing.contains(candidate.lowercased()) {
+            candidate = "\(baseFolder)/\(slug)-\(index).md"
+            index += 1
+        }
+        return candidate
+    }
+
+    private func sanitizedFolder(_ folder: String?) -> String {
+        let cleaned = (folder ?? "inbox")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .split(separator: "/")
+            .first
+            .map(String.init) ?? "inbox"
+        return cleaned.isEmpty ? "inbox" : cleaned
+    }
+
+    private static func slugify(_ title: String) -> String {
+        let mapped = title.lowercased()
+            .replacingOccurrences(of: "ä", with: "ae")
+            .replacingOccurrences(of: "ö", with: "oe")
+            .replacingOccurrences(of: "ü", with: "ue")
+            .replacingOccurrences(of: "ß", with: "ss")
+        let scalars = mapped.unicodeScalars.map { scalar -> Character in
+            if CharacterSet.alphanumerics.contains(scalar) { return Character(scalar) }
+            return "-"
+        }
+        let collapsed = String(scalars)
+            .split(separator: "-", omittingEmptySubsequences: true)
+            .joined(separator: "-")
+        return collapsed.isEmpty ? "untitled" : collapsed
+    }
+
+    private static let isoDayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
 
     private static var deviceName: String {
         #if os(iOS)
