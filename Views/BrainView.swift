@@ -31,7 +31,6 @@ extension Color {
 
 struct PearlView: View {
     let size: CGFloat
-    @State private var pulse = false
 
     var body: some View {
         ZStack {
@@ -60,7 +59,6 @@ struct PearlView: View {
                     )
                 )
                 .frame(width: size, height: size)
-                .scaleEffect(pulse ? 1.04 : 1.0)
                 .shadow(color: .vbPink.opacity(0.45), radius: size * 0.2)
 
             Ellipse()
@@ -68,11 +66,6 @@ struct PearlView: View {
                 .frame(width: size * 0.26, height: size * 0.30)
                 .offset(x: -size * 0.12, y: -size * 0.14)
                 .blur(radius: size * 0.04)
-        }
-        .onAppear {
-            withAnimation(.easeInOut(duration: 3.6).repeatForever(autoreverses: true)) {
-                pulse = true
-            }
         }
     }
 }
@@ -105,24 +98,21 @@ private struct StarfieldView: View {
             let x = CGFloat((i * 73) % 390) / 390.0
             let y = CGFloat((i * 137) % 844) / 844.0
             let r = CGFloat(0.4 + Double((i * 13) % 10) / 18.0)
-            return (x, y, r, Double(i) * 0.37)
+            let alpha = 0.10 + Double((i * 17) % 10) / 70.0
+            return (x, y, r, alpha)
         }
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.08)) { tl in
-            let t = tl.date.timeIntervalSinceReferenceDate
-            Canvas { ctx, size in
-                for (nx, ny, r, phase) in Self.stars {
-                    let alpha = 0.08 + 0.22 * (0.5 + 0.5 * sin(t * 0.65 + phase))
-                    ctx.fill(
-                        Path(ellipseIn: CGRect(
-                            x: nx * size.width  - r,
-                            y: ny * size.height - r,
-                            width: r * 2, height: r * 2
-                        )),
-                        with: .color(.white.opacity(alpha))
-                    )
-                }
+        Canvas { ctx, size in
+            for (nx, ny, r, alpha) in Self.stars {
+                ctx.fill(
+                    Path(ellipseIn: CGRect(
+                        x: nx * size.width  - r,
+                        y: ny * size.height - r,
+                        width: r * 2, height: r * 2
+                    )),
+                    with: .color(.white.opacity(alpha))
+                )
             }
         }
         .ignoresSafeArea()
@@ -151,13 +141,21 @@ struct BrainView: View {
                     edges: viewModel.graphModel.edges,
                     selectedNodeID: selectedNoteID,
                     onNodeTapped: { id in
+                        withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
+                            selectedNoteID = id
+                        }
+                    },
+                    onNodeOpened: { id in
                         selectedNoteID = id
-                        showNoteSheet  = true
+                        showNoteSheet = true
                     },
                     onNodeLongPressed: { id in
                         longPressNodeID = id
                         selectedNoteID  = id
                         withAnimation(.spring(duration: 0.35)) { showLongPress = true }
+                    },
+                    onBackgroundTapped: {
+                        withAnimation(.easeInOut(duration: 0.28)) { selectedNoteID = nil }
                     }
                 )
                 .ignoresSafeArea()
@@ -183,6 +181,28 @@ struct BrainView: View {
                 onLogout:  { viewModel.logout() }
             )
             .zIndex(20)
+        }
+        .overlay(alignment: .bottom) {
+            if !showLongPress,
+               let node = selectedNode,
+               let connected = selectedNodeConnections {
+                NodeInsightPanelView(
+                    node: node,
+                    connectedCount: connected.count,
+                    connectedTitles: connected.map(\.title).sorted(),
+                    onOpen: { showNoteSheet = true },
+                    onCopyWikilink: { UIPasteboard.general.string = "[[\(node.title)]]" },
+                    onClose: {
+                        withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
+                            selectedNoteID = nil
+                        }
+                    }
+                )
+                .padding(.horizontal, 14)
+                .padding(.bottom, 22)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(25)
+            }
         }
         .overlay {
             if showLongPress,
@@ -220,6 +240,21 @@ struct BrainView: View {
                 await viewModel.loadNotes()
             }
         }
+    }
+
+    private var selectedNode: GraphNode? {
+        guard let selectedNoteID else { return nil }
+        return viewModel.graphModel.nodes.first { $0.id == selectedNoteID }
+    }
+
+    private var selectedNodeConnections: [GraphNode]? {
+        guard let selectedNoteID else { return nil }
+        var ids = Set<String>()
+        for edge in viewModel.graphModel.edges {
+            if edge.sourceID == selectedNoteID { ids.insert(edge.targetID) }
+            if edge.targetID == selectedNoteID { ids.insert(edge.sourceID) }
+        }
+        return viewModel.graphModel.nodes.filter { ids.contains($0.id) }
     }
 
     private var emptyState: some View {
@@ -287,6 +322,105 @@ private struct ToolbarPillView: View {
     }
 }
 
+// MARK: – Node Insight Panel
+
+private struct NodeInsightPanelView: View {
+    let node: GraphNode
+    let connectedCount: Int
+    let connectedTitles: [String]
+    let onOpen: () -> Void
+    let onCopyWikilink: () -> Void
+    let onClose: () -> Void
+
+    @State private var didCopy = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
+                PearlView(size: 34)
+                    .frame(width: 38, height: 38)
+                    .shadow(color: .vbMagenta.opacity(0.42), radius: 10)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(node.title)
+                        .font(.system(size: 19, weight: .semibold, design: .serif))
+                        .foregroundColor(.vbFg1)
+                        .lineLimit(1)
+                    Text("\(connectedCount) Verbindungen · \(node.connectionCount) Signale")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.vbFg3)
+                        .monospacedDigit()
+                }
+
+                Spacer()
+
+                insightButton(icon: didCopy ? "checkmark" : "doc.on.doc", tint: didCopy ? .vbSuccess : .vbLavender) {
+                    onCopyWikilink()
+                    withAnimation(.spring(response: 0.24, dampingFraction: 0.78)) { didCopy = true }
+                    Task {
+                        try? await Task.sleep(for: .seconds(1.4))
+                        await MainActor.run {
+                            withAnimation(.easeOut(duration: 0.2)) { didCopy = false }
+                        }
+                    }
+                }
+                insightButton(icon: "arrow.up.right", tint: .vbStardust, action: onOpen)
+                insightButton(icon: "xmark", tint: .vbFg3, action: onClose)
+            }
+
+            if !connectedTitles.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 7) {
+                        ForEach(connectedTitles.prefix(8), id: \.self) { title in
+                            Text(title)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(.vbFg2)
+                                .lineLimit(1)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(Color.white.opacity(0.07))
+                                .clipShape(Capsule())
+                                .overlay(Capsule().stroke(Color.vbLavender.opacity(0.18), lineWidth: 1))
+                        }
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color(red: 0.041, green: 0.022, blue: 0.110).opacity(0.86))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(
+                            LinearGradient(
+                                colors: [.vbPink.opacity(0.32), .vbLavender.opacity(0.22), .vbPeriwinkle.opacity(0.20)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            ),
+                            lineWidth: 1
+                        )
+                )
+                .shadow(color: .black.opacity(0.48), radius: 22, y: 8)
+        }
+    }
+
+    private func insightButton(icon: String, tint: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(tint)
+                .frame(width: 34, height: 34)
+                .background(
+                    Circle()
+                        .fill(Color.white.opacity(0.07))
+                        .overlay(Circle().stroke(tint.opacity(0.20), lineWidth: 1))
+                )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 // MARK: – 3D Graph
 
 struct BrainGraphView: View {
@@ -294,7 +428,9 @@ struct BrainGraphView: View {
     let edges: [GraphEdge]
     let selectedNodeID: String?
     let onNodeTapped:      (String) -> Void
+    let onNodeOpened:      (String) -> Void
     let onNodeLongPressed: (String) -> Void
+    let onBackgroundTapped: () -> Void
 
     @State private var zoom: CGFloat = 1.0
     @GestureState private var pinchDelta: CGFloat = 1.0
@@ -302,8 +438,6 @@ struct BrainGraphView: View {
     @State private var userRotY: Double = 0
     @State private var userRotX: Double = 0
     @GestureState private var dragDelta: CGSize = .zero
-
-    private var sz: CGSize { UIScreen.main.bounds.size }
 
     private var connectedIDs: Set<String> {
         guard let sel = selectedNodeID else { return [] }
@@ -316,87 +450,80 @@ struct BrainGraphView: View {
     }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { tl in
-            let t     = tl.date.timeIntervalSinceReferenceDate
-            // Auto-drift + user input on both axes
-            let rotY  = t * 0.032 + userRotY + dragDelta.width  * 0.004
-            let rotX  = 0.22 + 0.06 * sin(t * 0.09)           // gentle tilt oscillation
-                      + userRotX + dragDelta.height * 0.003
-            let clampX = max(-0.55, min(0.55, rotX))
+        GeometryReader { geo in
+            let currentZoom = max(0.45, min(3.4, zoom * pinchDelta))
+            let rotY  = userRotY - dragDelta.width * 0.004
+            let rotX  = 0.22 + userRotX - dragDelta.height * 0.003
+                let clampX = max(-0.55, min(0.55, rotX))
+                let selID     = selectedNodeID
+                let connected = connectedIDs
 
-            let projected = computeProjections(rotY: rotY, rotX: clampX, size: sz)
-            let idToPos   = Dictionary(uniqueKeysWithValues: projected.map { ($0.id, $0) })
-            let connected = connectedIDs
-            let selID     = selectedNodeID
-
-            ZStack {
-                // Edges + labels
-                Canvas { ctx, _ in
-                    for edge in edges {
-                        guard let a = idToPos[edge.sourceID],
-                              let b = idToPos[edge.targetID] else { continue }
-                        let isLit = selID.map { edge.sourceID == $0 || edge.targetID == $0 } ?? false
-                        let baseAlpha: Double = selID == nil ? 0.22 : (isLit ? 0.70 : 0.04)
-                        let depthFade = Double((a.depthScale + b.depthScale) / 2.0)
-                        let edgeColor = isLit ? Color.vbLavender : Color.vbPink
-                        var path = Path()
-                        path.move(to: a.screenPos)
-                        path.addLine(to: b.screenPos)
-                        ctx.stroke(path,
-                                   with: .color(edgeColor.opacity(baseAlpha * depthFade)),
-                                   lineWidth: isLit ? 1.5 : 0.8)
-                    }
-                    // Labels only for close/selected nodes
-                    for item in projected where !item.isDimmed(selID: selID, connected: connected) {
-                        guard item.depthScale > 0.78 else { continue }
-                        let r = baseRadius(item.node) * item.depthScale
-                        let label = ctx.resolve(
-                            Text(String(item.node.title.prefix(13)))
-                                .font(.system(size: max(7, 9 * item.depthScale), weight: .medium))
-                        )
-                        ctx.draw(label,
-                                 at: CGPoint(x: item.screenPos.x, y: item.screenPos.y + r + 6),
-                                 anchor: .top)
-                    }
-                }
-                .foregroundStyle(Color.vbFg2.opacity(0.70))
-                .allowsHitTesting(false)
-
-                // Nodes rendered back-to-front (painter's algorithm)
-                ForEach(projected.sorted { $0.z < $1.z }) { item in
-                    let isSelected = item.id == selID
-                    let isNeighbor = connected.contains(item.id)
-                    let isDim      = selID != nil && !isSelected && !isNeighbor
-                    GirlyNodeView(
-                        node: item.node,
-                        isSelected: isSelected,
-                        isNeighbor: isNeighbor,
-                        isDim: isDim,
-                        depthScale: item.depthScale,
-                        onTap: onNodeTapped,
-                        onLongPress: onNodeLongPressed
-                    )
-                    .opacity(item.depthOpacity)
-                    .position(item.screenPos)
-                }
-            }
-        }
-        .frame(width: sz.width, height: sz.height)
-        .scaleEffect(zoom * pinchDelta, anchor: .center)
-        .gesture(
-            MagnificationGesture()
-                .updating($pinchDelta) { v, s, _ in s = v }
-                .onEnded { v in zoom = max(0.25, min(5.0, zoom * v)) }
-                .simultaneously(with:
-                    DragGesture(minimumDistance: 5)
-                        .updating($dragDelta) { v, s, _ in s = v.translation }
-                        .onEnded { v in
-                            userRotY += v.translation.width  * 0.004
-                            userRotX  = max(-0.55, min(0.55,
-                                userRotX + v.translation.height * 0.003))
-                        }
+                let projected = computeProjections(
+                    rotY: rotY,
+                    rotX: clampX,
+                    size: geo.size,
+                    zoom: currentZoom,
+                    focusNodeID: selID
                 )
-        )
+                let idToPos   = Dictionary(uniqueKeysWithValues: projected.map { ($0.id, $0) })
+
+                ZStack {
+                    // Background tap target clears selection.
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture { onBackgroundTapped() }
+
+                    DeepSpaceGridView(selectedNodeID: selID)
+                        .allowsHitTesting(false)
+
+                    Canvas { ctx, _ in
+                        drawConstellationEdges(
+                            ctx: &ctx,
+                            projected: projected,
+                            idToPos: idToPos,
+                            connected: connected,
+                            selectedID: selID
+                        )
+                    }
+                    .allowsHitTesting(false)
+
+                    // Nodes rendered back-to-front (painter's algorithm).
+                    ForEach(projected.sorted { $0.z < $1.z }) { item in
+                        let isSelected = item.id == selID
+                        let isNeighbor = connected.contains(item.id)
+                        let isDim      = selID != nil && !isSelected && !isNeighbor
+                        GirlyNodeView(
+                            node: item.node,
+                            isSelected: isSelected,
+                            isNeighbor: isNeighbor,
+                            isDim: isDim,
+                            depthScale: item.depthScale,
+                            orbitalPhase: phaseSeed(item.id),
+                            onTap: onNodeTapped,
+                            onOpen: onNodeOpened,
+                            onLongPress: onNodeLongPressed
+                        )
+                        .opacity(item.depthOpacity)
+                        .position(item.screenPos)
+                    }
+                }
+            .gesture(
+                MagnificationGesture()
+                    .updating($pinchDelta) { v, s, _ in s = v }
+                    .onEnded { v in zoom = max(0.45, min(3.4, zoom * v)) }
+                    .simultaneously(with:
+                        DragGesture(minimumDistance: 5)
+                            .updating($dragDelta) { v, s, _ in s = v.translation }
+                            .onEnded { v in
+                                let predictedX = v.predictedEndTranslation.width - v.translation.width
+                                let predictedY = v.predictedEndTranslation.height - v.translation.height
+                                userRotY -= (v.translation.width + predictedX * 0.28) * 0.004
+                                userRotX  = max(-0.55, min(0.55,
+                                    userRotX - (v.translation.height + predictedY * 0.22) * 0.003))
+                            }
+                    )
+            )
+        }
     }
 
     // MARK: Projected node data
@@ -415,14 +542,74 @@ struct BrainGraphView: View {
         }
     }
 
-    private func computeProjections(rotY: Double, rotX: Double, size: CGSize) -> [ProjectedNode] {
-        nodes.map { node in
+    private func computeProjections(
+        rotY: Double,
+        rotX: Double,
+        size: CGSize,
+        zoom: CGFloat,
+        focusNodeID: String?
+    ) -> [ProjectedNode] {
+        let viewport = graphViewport(in: size)
+        let rawItems = nodes.map { node in
             let p = rotate3D(node.position, rotY: rotY, rotX: rotX)
-            let (pos, dScale) = perspectiveProject(p, size: size)
-            // Opacity: close nodes fully visible, far nodes slightly faded
+            let f = depthFactor(for: p)
+            let rawPos = CGPoint(x: CGFloat(p.x) * f, y: -CGFloat(p.y) * f)
+            let depthScale = max(0.5, min(1.5, f)) * sqrt(zoom)
             let depthOpacity = Double(max(0.45, min(1.0, 0.60 + 0.40 * (1.0 - (Double(p.z) + 5.5) / 11.0))))
-            return ProjectedNode(id: node.id, node: node, screenPos: pos,
-                                 depthScale: dScale, depthOpacity: depthOpacity, z: p.z)
+            return (node: node, rawPos: rawPos, depthScale: depthScale, depthOpacity: depthOpacity, z: p.z)
+        }
+
+        guard !rawItems.isEmpty else { return [] }
+
+        let minX = rawItems.map(\.rawPos.x).min() ?? 0
+        let maxX = rawItems.map(\.rawPos.x).max() ?? 0
+        let minY = rawItems.map(\.rawPos.y).min() ?? 0
+        let maxY = rawItems.map(\.rawPos.y).max() ?? 0
+        let rawCenter = CGPoint(x: (minX + maxX) / 2, y: (minY + maxY) / 2)
+        let rawWidth = max(maxX - minX, 1.0)
+        let rawHeight = max(maxY - minY, 1.0)
+
+        let xScale = (viewport.width * 0.90 / rawWidth) * zoom
+        let yScale = (viewport.height * 0.86 / rawHeight) * zoom
+
+        let projected = rawItems.map { item in
+            let pos = CGPoint(
+                x: viewport.midX + (item.rawPos.x - rawCenter.x) * xScale,
+                y: viewport.midY + (item.rawPos.y - rawCenter.y) * yScale
+            )
+            return ProjectedNode(
+                id: item.node.id,
+                node: item.node,
+                screenPos: pos,
+                depthScale: item.depthScale,
+                depthOpacity: item.depthOpacity,
+                z: item.z
+            )
+        }
+
+        guard let focusNodeID,
+              let focus = projected.first(where: { $0.id == focusNodeID }) else {
+            return projected
+        }
+
+        let center = CGPoint(x: viewport.midX, y: viewport.midY)
+        let focusOffset = CGSize(
+            width: center.x - focus.screenPos.x,
+            height: center.y - focus.screenPos.y
+        )
+
+        return projected.map { item in
+            ProjectedNode(
+                id: item.id,
+                node: item.node,
+                screenPos: CGPoint(
+                    x: item.screenPos.x + focusOffset.width,
+                    y: item.screenPos.y + focusOffset.height
+                ),
+                depthScale: item.depthScale,
+                depthOpacity: item.depthOpacity,
+                z: item.z
+            )
         }
     }
 
@@ -439,20 +626,117 @@ struct BrainGraphView: View {
         return SIMD3<Float>(x1, y2, z2)
     }
 
-    // Perspective projection: closer nodes appear larger and positioned with parallax
-    private func perspectiveProject(_ p: SIMD3<Float>, size: CGSize) -> (CGPoint, CGFloat) {
-        let base: CGFloat = min(size.width, size.height) / 14.0
-        let cam:  Float   = 22.0              // virtual camera distance
-        let dz            = cam + p.z         // depth (always positive with cam=22, z in [-5,5])
-        let f             = CGFloat(cam / max(dz, 0.5))   // perspective factor
-        let x = size.width  / 2 + CGFloat(p.x) * base * f
-        let y = size.height / 2 - CGFloat(p.y) * base * f
-        // depthScale drives node size: close = ~1.27×, far = ~0.81×
-        return (CGPoint(x: x, y: y), max(0.5, min(1.5, f)))
+    private func graphViewport(in size: CGSize) -> CGRect {
+        let topInset = min(max(size.height * 0.15, 118), 142)
+        let horizontalInset: CGFloat = 18
+        let bottomInset: CGFloat = 34
+        return CGRect(
+            x: horizontalInset,
+            y: topInset,
+            width: max(1, size.width - horizontalInset * 2),
+            height: max(1, size.height - topInset - bottomInset)
+        )
+    }
+
+    private func depthFactor(for p: SIMD3<Float>) -> CGFloat {
+        let cam: Float = 22.0
+        let dz = cam + p.z
+        return CGFloat(cam / max(dz, 0.5))
     }
 
     private func baseRadius(_ node: GraphNode) -> CGFloat {
         CGFloat(max(10, min(24, 10 + Double(node.connectionCount) * 1.8)))
+    }
+
+    private func drawConstellationEdges(
+        ctx: inout GraphicsContext,
+        projected: [ProjectedNode],
+        idToPos: [String: ProjectedNode],
+        connected: Set<String>,
+        selectedID: String?
+    ) {
+        for edge in edges {
+            guard let a = idToPos[edge.sourceID],
+                  let b = idToPos[edge.targetID] else { continue }
+            let isLit = selectedID.map { edge.sourceID == $0 || edge.targetID == $0 } ?? false
+            let baseAlpha: Double = selectedID == nil ? 0.20 : (isLit ? 0.72 : 0.035)
+            let depthFade = Double((a.depthScale + b.depthScale) / 2.0)
+            let edgeColor = isLit ? Color.vbLavender : Color.vbPink
+            var path = Path()
+            path.move(to: a.screenPos)
+            path.addLine(to: b.screenPos)
+
+            if isLit {
+                ctx.stroke(path,
+                           with: .color(edgeColor.opacity(0.18 * depthFade)),
+                           lineWidth: 7.0)
+            }
+            ctx.stroke(path,
+                       with: .color(edgeColor.opacity(baseAlpha * depthFade)),
+                       lineWidth: isLit ? 1.7 : 0.75)
+        }
+
+        for item in projected where !item.isDimmed(selID: selectedID, connected: connected) {
+            let shouldLabel = item.id == selectedID || connected.contains(item.id) || item.depthScale > 0.92
+            guard shouldLabel else { continue }
+            let r = baseRadius(item.node) * item.depthScale
+            let title = String(item.node.title.prefix(item.id == selectedID ? 22 : 15))
+            let label = ctx.resolve(
+                Text(title)
+                    .font(.system(size: max(8, CGFloat(item.id == selectedID ? 11 : 9) * item.depthScale), weight: .semibold))
+                    .foregroundColor(item.id == selectedID ? .vbFg1 : .vbFg2.opacity(0.78))
+            )
+            ctx.draw(label,
+                     at: CGPoint(x: item.screenPos.x, y: item.screenPos.y + r + 8),
+                     anchor: .top)
+        }
+    }
+
+    private func phaseSeed(_ value: String) -> Double {
+        let total = value.unicodeScalars.reduce(0) { ($0 &* 31) &+ Int($1.value) }
+        return Double(abs(total % 1_000)) / 1_000.0
+    }
+}
+
+// MARK: – Spatial Grid
+
+private struct DeepSpaceGridView: View {
+    let selectedNodeID: String?
+
+    var body: some View {
+        Canvas { ctx, size in
+            let center = CGPoint(x: size.width / 2, y: size.height / 2)
+            let maxRadius = hypot(size.width, size.height) * 0.54
+            let focusBoost = selectedNodeID == nil ? 0.0 : 0.012
+
+            for i in 1...5 {
+                let radius = maxRadius * CGFloat(i) / 5.6
+                let rect = CGRect(
+                    x: center.x - radius,
+                    y: center.y - radius * 0.58,
+                    width: radius * 2,
+                    height: radius * 1.16
+                )
+                ctx.stroke(
+                    Path(ellipseIn: rect),
+                    with: .color(Color.vbLavender.opacity(0.018 + (i == 3 ? focusBoost : 0))),
+                    lineWidth: 0.8
+                )
+            }
+
+            for i in 0..<9 {
+                let angle = Double(i) / 9.0 * Double.pi * 2.0
+                let end = CGPoint(
+                    x: center.x + cos(angle) * maxRadius,
+                    y: center.y + sin(angle) * maxRadius * 0.58
+                )
+                var path = Path()
+                path.move(to: center)
+                path.addLine(to: end)
+                ctx.stroke(path, with: .color(Color.vbPeriwinkle.opacity(0.018)), lineWidth: 0.7)
+            }
+        }
+        .opacity(selectedNodeID == nil ? 0.65 : 1.0)
     }
 }
 
@@ -464,10 +748,11 @@ private struct GirlyNodeView: View {
     let isNeighbor: Bool
     let isDim: Bool
     let depthScale: CGFloat   // perspective size modifier (0.5 – 1.5)
+    let orbitalPhase: TimeInterval
     let onTap:       (String) -> Void
+    let onOpen:      (String) -> Void
     let onLongPress: (String) -> Void
 
-    @State private var pulse = false
     @State private var rippleScale:   CGFloat = 0.8
     @State private var rippleOpacity: Double  = 0.0
 
@@ -476,33 +761,54 @@ private struct GirlyNodeView: View {
     private var baseR: CGFloat {
         CGFloat(max(10, min(24, 10 + Double(node.connectionCount) * 1.8))) * depthScale
     }
-    private var r: CGFloat { isSelected ? baseR * 1.5 : baseR }
+    private var r: CGFloat { isSelected ? baseR * 1.62 : (isNeighbor ? baseR * 1.12 : baseR) }
+    private var touchSize: CGFloat { max(52, r * 4.0) }
 
     private var pearlColors: [Color] {
         if isSelected {
-            return [.vbStardust, Color(red: 1, green: 0.75, blue: 0.86), .vbMagenta, .vbLavender,
+            return [.vbStardust, Color(red: 1, green: 0.79, blue: 0.89), .vbMagenta, .vbLavender,
                     Color(red: 0.353, green: 0.176, blue: 0.639)]
         }
         let t = Double(min(node.connectionCount, 12)) / 12.0
         if t > 0.6 {
-            return [.vbStardust, .vbRose, .vbOrchid, Color(red: 0.588, green: 0.318, blue: 0.902),
+            return [.vbStardust, .vbRose, .vbOrchid, .vbPeriwinkle,
                     Color(red: 0.353, green: 0.176, blue: 0.639)]
         }
-        return [.vbStardust, .vbRose, .vbPink, .vbLavender,
-                Color(red: 0.353, green: 0.176, blue: 0.639)]
+        return [.vbStardust, Color(red: 0.82, green: 0.90, blue: 1.0), .vbPeriwinkle, .vbLavender,
+                Color(red: 0.247, green: 0.184, blue: 0.576)]
     }
 
     private var glowColor: Color {
-        isSelected ? .vbMagenta : (isNeighbor ? .vbLavender : .vbPink)
+        isSelected ? .vbMagenta : (isNeighbor ? .vbPeriwinkle : .vbLavender)
     }
 
     var body: some View {
         ZStack {
+            if isSelected || isNeighbor {
+                Circle()
+                    .stroke(
+                        AngularGradient(
+                            colors: [.clear, glowColor.opacity(0.20), .vbStardust.opacity(0.55), .clear],
+                            center: .center
+                        ),
+                        lineWidth: isSelected ? 1.3 : 0.8
+                    )
+                    .frame(width: r * 4.3, height: r * 4.3)
+                    .rotationEffect(.degrees(orbitalPhase * 24))
+                    .opacity(isSelected ? 0.90 : 0.44)
+
+                Circle()
+                    .trim(from: 0.10, to: 0.22)
+                    .stroke(Color.vbStardust.opacity(isSelected ? 0.72 : 0.38), style: StrokeStyle(lineWidth: 1.4, lineCap: .round))
+                    .frame(width: r * 5.0, height: r * 5.0)
+                    .rotationEffect(.degrees(-orbitalPhase * 38))
+            }
+
             // Outer aura
             Circle()
-                .fill(glowColor.opacity(pulse ? 0.22 : 0.06))
-                .frame(width: r * 3.4, height: r * 3.4)
-                .blur(radius: 10)
+                .fill(glowColor.opacity(isSelected ? 0.20 : (isNeighbor ? 0.12 : 0.06)))
+                .frame(width: r * 4.0, height: r * 4.0)
+                .blur(radius: isSelected ? 16 : 11)
                 .animation(.easeInOut(duration: 0.3), value: isSelected)
 
             // Ripple
@@ -512,7 +818,7 @@ private struct GirlyNodeView: View {
 
             // Inner halo
             Circle()
-                .fill(glowColor.opacity(pulse ? 0.30 : 0.10))
+                .fill(glowColor.opacity(isSelected ? 0.26 : (isNeighbor ? 0.18 : 0.10)))
                 .frame(width: r * 2.5, height: r * 2.5)
                 .blur(radius: 8)
                 .animation(.easeInOut(duration: 0.3), value: isSelected)
@@ -534,26 +840,36 @@ private struct GirlyNodeView: View {
                 .frame(width: r * 0.45, height: r * 0.45)
                 .offset(x: -r * 0.22, y: -r * 0.22)
                 .blur(radius: r * 0.12)
+
+            if node.connectionCount > 0 {
+                Text("\(min(node.connectionCount, 99))")
+                    .font(.system(size: max(8, r * 0.45), weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundColor(.vbVoid.opacity(isSelected ? 0.72 : 0.58))
+                    .offset(x: r * 0.02, y: r * 0.04)
+                    .opacity(isSelected || isNeighbor || node.connectionCount > 3 ? 1 : 0)
+            }
         }
-        .opacity(isDim ? 0.18 : 1.0)
+        .frame(width: touchSize, height: touchSize)
+        .opacity(isDim ? 0.14 : 1.0)
+        .scaleEffect(isSelected ? 1.04 : 1.0)
         .animation(.easeInOut(duration: 0.28), value: isDim)
         .animation(.easeInOut(duration: 0.28), value: isSelected)
-        .contentShape(Circle().size(CGSize(width: r * 3.4, height: r * 3.4)))
+        .contentShape(Circle())
         .onTapGesture {
             triggerRipple()
             haptic.impactOccurred()
             onTap(node.id)
+        }
+        .onTapGesture(count: 2) {
+            UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+            onOpen(node.id)
         }
         .onLongPressGesture(minimumDuration: 0.5) {
             UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
             onLongPress(node.id)
         }
         .onAppear {
-            withAnimation(
-                .easeInOut(duration: Double.random(in: 1.8...3.2))
-                .repeatForever(autoreverses: true)
-                .delay(Double.random(in: 0...2.0))
-            ) { pulse = true }
             haptic.prepare()
         }
     }
