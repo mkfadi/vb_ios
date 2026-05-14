@@ -25,9 +25,8 @@ struct NoteView: View {
                 if isLoading {
                     VStack(spacing: 16) {
                         PearlView(size: 44)
-                        Text("Lade Notiz …")
-                            .font(.system(size: 15, design: .serif))
-                            .italic()
+                        Text("Lade Node …")
+                            .font(.system(size: 15, weight: .medium, design: .rounded))
                             .foregroundColor(.vbFg3)
                     }
                 } else if let note {
@@ -39,7 +38,7 @@ struct NoteView: View {
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(Color.vbDeep, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbarColorScheme(.light, for: .navigationBar)
             .toolbar { toolbarContent }
             .overlay(alignment: .top) { successBanner }
         }
@@ -56,19 +55,19 @@ struct NoteView: View {
     private func readView(_ note: Note) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                // Journal date stamp
+                // Node date stamp
                 Text(formattedDate())
-                    .font(.system(size: 20, weight: .medium, design: .serif))
-                    .italic()
-                    .foregroundColor(.vbLavender)
-                    .rotationEffect(.degrees(-1.5))
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundColor(.vbPink)
+                    .textCase(.uppercase)
+                    .tracking(0.8)
                     .padding(.horizontal, 28)
                     .padding(.top, 16)
                     .padding(.bottom, 4)
 
                 // Note title
                 Text(note.name)
-                    .font(.system(size: 32, weight: .medium, design: .serif))
+                    .font(.system(size: 30, weight: .bold, design: .rounded))
                     .foregroundColor(.vbFg1)
                     .padding(.horizontal, 28)
                     .padding(.bottom, 22)
@@ -89,7 +88,7 @@ struct NoteView: View {
                             Image(systemName: "link")
                                 .font(.system(size: 10, weight: .semibold))
                                 .foregroundColor(.vbLavender)
-                            Text("Verknüpfte Notizen (\(Set(note.links).count))")
+                            Text("Verknüpfte Nodes (\(Set(note.links).count))")
                                 .font(.system(size: 11, weight: .semibold))
                                 .tracking(1.0)
                                 .textCase(.uppercase)
@@ -112,7 +111,7 @@ struct NoteView: View {
                     Image(systemName: "pencil.and.outline")
                         .font(.system(size: 10))
                         .foregroundColor(.vbLavender)
-                    Text("Markdown bearbeiten")
+                    Text("Node bearbeiten")
                         .font(.system(size: 11, weight: .semibold))
                         .tracking(0.8)
                         .textCase(.uppercase)
@@ -174,7 +173,8 @@ struct NoteView: View {
             }
             .padding(.horizontal, 18)
             .padding(.vertical, 11)
-            .background(Color(red: 0.031, green: 0.157, blue: 0.071))
+            .background(Color.white.opacity(0.94))
+            .shadow(color: Color.vbPink.opacity(0.14), radius: 18, y: 8)
             .cornerRadius(20)
             .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.vbSuccess.opacity(0.5), lineWidth: 1))
             .padding(.top, 8)
@@ -335,12 +335,12 @@ struct MarkdownView: View {
     private func renderLine(_ line: String) -> some View {
         if line.hasPrefix("# ") {
             Text(line.dropFirst(2))
-                .font(.system(size: 28, weight: .medium, design: .serif))
+                .font(.system(size: 28, weight: .bold, design: .rounded))
                 .foregroundColor(.vbFg1)
                 .padding(.top, 12)
         } else if line.hasPrefix("## ") {
             Text(line.dropFirst(3))
-                .font(.system(size: 22, weight: .medium, design: .serif))
+                .font(.system(size: 22, weight: .semibold, design: .rounded))
                 .foregroundColor(.vbFg1)
                 .padding(.top, 8)
         } else if line.hasPrefix("### ") {

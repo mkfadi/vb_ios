@@ -8,65 +8,38 @@ import SceneKit   // SCNVector3.x / .y
 // MARK: – Design Tokens (module-wide)
 
 extension Color {
-    static let vbVoid       = Color(red: 0.024, green: 0.012, blue: 0.098)  // #06031a
-    static let vbDeep       = Color(red: 0.047, green: 0.031, blue: 0.141)  // #0c0824
-    static let vbNebula     = Color(red: 0.086, green: 0.043, blue: 0.188)  // #160b30
-    static let vbRose       = Color(red: 1.000, green: 0.561, blue: 0.702)  // #ff8fb3
-    static let vbPink       = Color(red: 1.000, green: 0.435, blue: 0.639)  // #ff6fa3
-    static let vbMagenta    = Color(red: 1.000, green: 0.353, blue: 0.627)  // #ff5aa0
-    static let vbLavender   = Color(red: 0.788, green: 0.643, blue: 1.000)  // #c9a4ff
-    static let vbLilac      = Color(red: 0.710, green: 0.553, blue: 1.000)  // #b58dff
-    static let vbOrchid     = Color(red: 0.847, green: 0.537, blue: 1.000)  // #d889ff
-    static let vbPeriwinkle = Color(red: 0.639, green: 0.659, blue: 1.000)  // #a3a8ff
-    static let vbStardust   = Color(red: 1.000, green: 0.941, blue: 0.969)  // #fff0f7
-    static let vbFg1        = Color(red: 0.984, green: 0.953, blue: 1.000)  // #fbf3ff
-    static let vbFg2        = Color(red: 0.831, green: 0.761, blue: 0.925)  // #d4c2ec
-    static let vbFg3        = Color(red: 0.592, green: 0.518, blue: 0.722)  // #9784b8
-    static let vbFg4        = Color(red: 0.420, green: 0.353, blue: 0.529)  // #6b5a87
-    static let vbSuccess    = Color(red: 0.533, green: 0.902, blue: 0.765)  // #88e6c3
-    static let vbDanger     = Color(red: 1.000, green: 0.478, blue: 0.541)  // #ff7a8a
+    static let vbVoid       = Color(red: 0.998, green: 0.995, blue: 0.992)  // warm white
+    static let vbDeep       = Color(red: 0.992, green: 0.965, blue: 0.976)  // blush surface
+    static let vbNebula     = Color(red: 1.000, green: 0.930, blue: 0.958)  // soft rose panel
+    static let vbRose       = Color(red: 1.000, green: 0.454, blue: 0.682)  // logo rose
+    static let vbPink       = Color(red: 0.984, green: 0.137, blue: 0.554)  // logo pink
+    static let vbMagenta    = Color(red: 0.918, green: 0.063, blue: 0.457)  // active pink
+    static let vbLavender   = Color(red: 0.973, green: 0.337, blue: 0.631)  // brand accent
+    static let vbLilac      = Color(red: 1.000, green: 0.690, blue: 0.812)  // pale pink
+    static let vbOrchid     = Color(red: 0.940, green: 0.188, blue: 0.527)  // rich node
+    static let vbPeriwinkle = Color(red: 1.000, green: 0.800, blue: 0.878)  // light node
+    static let vbStardust   = Color.white
+    static let vbFg1        = Color(red: 0.120, green: 0.102, blue: 0.118)  // ink
+    static let vbFg2        = Color(red: 0.286, green: 0.243, blue: 0.282)  // graphite
+    static let vbFg3        = Color(red: 0.553, green: 0.459, blue: 0.529)  // muted mauve
+    static let vbFg4        = Color(red: 0.710, green: 0.610, blue: 0.682)  // soft label
+    static let vbSuccess    = Color(red: 0.113, green: 0.640, blue: 0.438)
+    static let vbDanger     = Color(red: 0.906, green: 0.153, blue: 0.314)
 }
 
-// MARK: – Pearl (brand mark, shared across screens)
+// MARK: – Brand mark, shared across screens
 
 struct PearlView: View {
     let size: CGFloat
 
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [Color.vbPink.opacity(0.55), Color.vbLavender.opacity(0.25), .clear],
-                        center: .center, startRadius: 0, endRadius: size * 0.62
-                    )
-                )
-                .frame(width: size * 1.3, height: size * 1.3)
-                .blur(radius: size * 0.15)
-
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            .vbStardust,
-                            Color(red: 1, green: 0.769, blue: 0.863),
-                            .vbRose,
-                            .vbLavender,
-                            Color(red: 0.353, green: 0.176, blue: 0.639)
-                        ],
-                        center: UnitPoint(x: 0.35, y: 0.32),
-                        startRadius: 0, endRadius: size * 0.5
-                    )
-                )
-                .frame(width: size, height: size)
-                .shadow(color: .vbPink.opacity(0.45), radius: size * 0.2)
-
-            Ellipse()
-                .fill(Color.white.opacity(0.65))
-                .frame(width: size * 0.26, height: size * 0.30)
-                .offset(x: -size * 0.12, y: -size * 0.14)
-                .blur(radius: size * 0.04)
-        }
+        Image("BrainLogo")
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: size * 0.18, style: .continuous))
+            .shadow(color: .vbPink.opacity(0.20), radius: size * 0.14, y: size * 0.05)
+            .accessibilityLabel("Synaptic Vault Logo")
     }
 }
 
@@ -75,16 +48,20 @@ struct PearlView: View {
 private struct CosmicBackgroundView: View {
     var body: some View {
         ZStack {
-            Color.vbVoid
-            RadialGradient(
-                colors: [Color.vbLavender.opacity(0.18), .clear],
-                center: UnitPoint(x: 0.30, y: 0.20),
-                startRadius: 0, endRadius: 300
+            LinearGradient(
+                colors: [.vbVoid, .vbDeep, Color.white],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
             )
             RadialGradient(
-                colors: [Color.vbPink.opacity(0.14), .clear],
-                center: UnitPoint(x: 0.75, y: 0.80),
-                startRadius: 0, endRadius: 280
+                colors: [Color.vbPink.opacity(0.13), .clear],
+                center: UnitPoint(x: 0.18, y: 0.12),
+                startRadius: 0, endRadius: 360
+            )
+            RadialGradient(
+                colors: [Color.vbRose.opacity(0.10), .clear],
+                center: UnitPoint(x: 0.86, y: 0.78),
+                startRadius: 0, endRadius: 320
             )
             StarfieldView()
         }
@@ -111,7 +88,7 @@ private struct StarfieldView: View {
                         y: ny * size.height - r,
                         width: r * 2, height: r * 2
                     )),
-                    with: .color(.white.opacity(alpha))
+                    with: .color(Color.vbPink.opacity(alpha * 0.45))
                 )
             }
         }
@@ -260,8 +237,8 @@ struct BrainView: View {
     private var emptyState: some View {
         VStack(spacing: 20) {
             PearlView(size: 72)
-            Text("Tippe ↺ um den Vault zu laden")
-                .font(.system(size: 16, design: .serif))
+            Text("Tippe ↺ zum Synchronisieren")
+                .font(.system(size: 16, weight: .medium, design: .rounded))
                 .italic()
                 .foregroundColor(.vbFg3)
         }
@@ -280,11 +257,14 @@ private struct ToolbarPillView: View {
 
     var body: some View {
         HStack(spacing: 10) {
+            PearlView(size: 30)
+                .frame(width: 32, height: 32)
+
             VStack(alignment: .leading, spacing: 2) {
-                Text("Virtual Brain")
-                    .font(.system(size: 18, weight: .semibold, design: .serif))
+                Text("Synaptic Vault")
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
                     .foregroundColor(.vbFg1)
-                Text("\(noteCount) Notizen · \(linkCount) Links")
+                Text("\(noteCount) Nodes · \(linkCount) Synapsen")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.vbFg3)
                     .monospacedDigit()
@@ -299,9 +279,9 @@ private struct ToolbarPillView: View {
         .padding(.trailing, 10)
         .background {
             Capsule()
-                .fill(Color(red: 0.078, green: 0.031, blue: 0.157).opacity(0.62))
-                .overlay(Capsule().stroke(Color.vbLavender.opacity(0.18), lineWidth: 1))
-                .shadow(color: .black.opacity(0.40), radius: 12, y: 4)
+                .fill(Color.white.opacity(0.88))
+                .overlay(Capsule().stroke(Color.vbPink.opacity(0.16), lineWidth: 1))
+                .shadow(color: .vbPink.opacity(0.12), radius: 18, y: 6)
         }
         .padding(.horizontal, 16)
         .padding(.top, 60)
@@ -315,7 +295,7 @@ private struct ToolbarPillView: View {
                 .frame(width: 34, height: 34)
                 .background(
                     Circle()
-                        .fill(Color.white.opacity(0.07))
+                        .fill(Color.vbDeep.opacity(0.80))
                         .overlay(Circle().stroke(Color.vbLavender.opacity(0.15), lineWidth: 1))
                 )
         }
@@ -343,10 +323,10 @@ private struct NodeInsightPanelView: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(node.title)
-                        .font(.system(size: 19, weight: .semibold, design: .serif))
+                        .font(.system(size: 19, weight: .bold, design: .rounded))
                         .foregroundColor(.vbFg1)
                         .lineLimit(1)
-                    Text("\(connectedCount) Verbindungen · \(node.connectionCount) Signale")
+                    Text("\(connectedCount) Synapsen · \(node.connectionCount) Impulse")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(.vbFg3)
                         .monospacedDigit()
@@ -364,7 +344,7 @@ private struct NodeInsightPanelView: View {
                         }
                     }
                 }
-                insightButton(icon: "arrow.up.right", tint: .vbStardust, action: onOpen)
+                insightButton(icon: "arrow.up.right", tint: .vbPink, action: onOpen)
                 insightButton(icon: "xmark", tint: .vbFg3, action: onClose)
             }
 
@@ -378,9 +358,9 @@ private struct NodeInsightPanelView: View {
                                 .lineLimit(1)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 6)
-                                .background(Color.white.opacity(0.07))
+                                .background(Color.vbDeep.opacity(0.88))
                                 .clipShape(Capsule())
-                                .overlay(Capsule().stroke(Color.vbLavender.opacity(0.18), lineWidth: 1))
+                                .overlay(Capsule().stroke(Color.vbPink.opacity(0.16), lineWidth: 1))
                         }
                     }
                 }
@@ -389,7 +369,7 @@ private struct NodeInsightPanelView: View {
         .padding(14)
         .background {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color(red: 0.041, green: 0.022, blue: 0.110).opacity(0.86))
+                .fill(Color.white.opacity(0.94))
                 .overlay(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .stroke(
@@ -401,7 +381,7 @@ private struct NodeInsightPanelView: View {
                             lineWidth: 1
                         )
                 )
-                .shadow(color: .black.opacity(0.48), radius: 22, y: 8)
+                .shadow(color: .vbPink.opacity(0.16), radius: 22, y: 8)
         }
     }
 
@@ -413,7 +393,7 @@ private struct NodeInsightPanelView: View {
                 .frame(width: 34, height: 34)
                 .background(
                     Circle()
-                        .fill(Color.white.opacity(0.07))
+                        .fill(Color.vbDeep.opacity(0.80))
                         .overlay(Circle().stroke(tint.opacity(0.20), lineWidth: 1))
                 )
         }
@@ -433,7 +413,9 @@ struct BrainGraphView: View {
     let onBackgroundTapped: () -> Void
 
     @State private var zoom: CGFloat = 1.0
-    @GestureState private var pinchDelta: CGFloat = 1.0
+    @State private var graphOffset: CGSize = .zero
+    @State private var pinchBaseZoom: CGFloat?
+    @State private var pinchBaseOffset: CGSize = .zero
     // User-controlled rotation (drag to spin)
     @State private var userRotY: Double = 0
     @State private var userRotX: Double = 0
@@ -451,7 +433,7 @@ struct BrainGraphView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let currentZoom = max(0.45, min(3.4, zoom * pinchDelta))
+            let currentZoom = zoom
             let rotY  = userRotY - dragDelta.width * 0.004
             let rotX  = 0.22 + userRotX - dragDelta.height * 0.003
                 let clampX = max(-0.55, min(0.55, rotX))
@@ -463,6 +445,7 @@ struct BrainGraphView: View {
                     rotX: clampX,
                     size: geo.size,
                     zoom: currentZoom,
+                    graphOffset: graphOffset,
                     focusNodeID: selID
                 )
                 let idToPos   = Dictionary(uniqueKeysWithValues: projected.map { ($0.id, $0) })
@@ -482,48 +465,77 @@ struct BrainGraphView: View {
                             projected: projected,
                             idToPos: idToPos,
                             connected: connected,
-                            selectedID: selID
+                            selectedID: selID,
+                            layer: .background
                         )
                     }
                     .allowsHitTesting(false)
 
-                    // Nodes rendered back-to-front (painter's algorithm).
-                    ForEach(projected.sorted { $0.z < $1.z }) { item in
-                        let isSelected = item.id == selID
-                        let isNeighbor = connected.contains(item.id)
-                        let isDim      = selID != nil && !isSelected && !isNeighbor
-                        GirlyNodeView(
-                            node: item.node,
-                            isSelected: isSelected,
-                            isNeighbor: isNeighbor,
-                            isDim: isDim,
-                            depthScale: item.depthScale,
-                            orbitalPhase: phaseSeed(item.id),
-                            onTap: onNodeTapped,
-                            onOpen: onNodeOpened,
-                            onLongPress: onNodeLongPressed
-                        )
-                        .opacity(item.depthOpacity)
-                        .position(item.screenPos)
+                    // Background nodes: unconnected notes sit behind the glass layer.
+                    ForEach(projected.sorted { $0.z < $1.z }.filter { item in
+                        guard let selID else { return true }
+                        return item.id != selID && !connected.contains(item.id)
+                    }) { item in
+                        nodeView(for: item, selectedID: selID, connected: connected)
+                            .position(item.screenPos)
+                    }
+
+                    if selID != nil {
+                        GraphGlassVeilView()
+                            .allowsHitTesting(false)
+                            .transition(.opacity)
+
+                        Canvas { ctx, _ in
+                            drawConstellationEdges(
+                                ctx: &ctx,
+                                projected: projected,
+                                idToPos: idToPos,
+                                connected: connected,
+                                selectedID: selID,
+                                layer: .foreground
+                            )
+                        }
+                        .allowsHitTesting(false)
+                    }
+
+                    // Foreground nodes: selection and direct connections stay crisp above glass.
+                    ForEach(projected.sorted { $0.z < $1.z }.filter { item in
+                        guard let selID else { return false }
+                        return item.id == selID || connected.contains(item.id)
+                    }) { item in
+                        nodeView(for: item, selectedID: selID, connected: connected)
+                            .position(item.screenPos)
                     }
                 }
             .gesture(
-                MagnificationGesture()
-                    .updating($pinchDelta) { v, s, _ in s = v }
-                    .onEnded { v in zoom = max(0.45, min(3.4, zoom * v)) }
-                    .simultaneously(with:
-                        DragGesture(minimumDistance: 5)
-                            .updating($dragDelta) { v, s, _ in s = v.translation }
-                            .onEnded { v in
-                                let predictedX = v.predictedEndTranslation.width - v.translation.width
-                                let predictedY = v.predictedEndTranslation.height - v.translation.height
-                                userRotY -= (v.translation.width + predictedX * 0.28) * 0.004
-                                userRotX  = max(-0.55, min(0.55,
-                                    userRotX - (v.translation.height + predictedY * 0.22) * 0.003))
-                            }
-                    )
+                magnifyGesture(in: geo.size)
+                    .simultaneously(with: rotateGesture)
             )
+            .onChange(of: selectedNodeID) { _, _ in
+                graphOffset = .zero
+            }
         }
+    }
+
+    @ViewBuilder
+    private func nodeView(for item: ProjectedNode, selectedID: String?, connected: Set<String>) -> some View {
+        let isSelected = item.id == selectedID
+        let isNeighbor = connected.contains(item.id)
+        let isDim = selectedID != nil && !isSelected && !isNeighbor
+
+        GirlyNodeView(
+            node: item.node,
+            isSelected: isSelected,
+            isNeighbor: isNeighbor,
+            isDim: isDim,
+            depthScale: item.depthScale,
+            highlightVector: item.highlightVector,
+            highlightOpacity: item.highlightOpacity,
+            orbitalPhase: phaseSeed(item.id),
+            onTap: onNodeTapped,
+            onOpen: onNodeOpened,
+            onLongPress: onNodeLongPressed
+        )
     }
 
     // MARK: Projected node data
@@ -533,7 +545,8 @@ struct BrainGraphView: View {
         let node: GraphNode
         let screenPos: CGPoint
         let depthScale: CGFloat
-        let depthOpacity: Double
+        let highlightVector: CGVector
+        let highlightOpacity: Double
         let z: Float
 
         func isDimmed(selID: String?, connected: Set<String>) -> Bool {
@@ -547,16 +560,24 @@ struct BrainGraphView: View {
         rotX: Double,
         size: CGSize,
         zoom: CGFloat,
+        graphOffset: CGSize,
         focusNodeID: String?
     ) -> [ProjectedNode] {
         let viewport = graphViewport(in: size)
+        let lightVector = overheadLightVector()
         let rawItems = nodes.map { node in
             let p = rotate3D(node.position, rotY: rotY, rotX: rotX)
             let f = depthFactor(for: p)
             let rawPos = CGPoint(x: CGFloat(p.x) * f, y: -CGFloat(p.y) * f)
             let depthScale = max(0.5, min(1.5, f)) * sqrt(zoom)
-            let depthOpacity = Double(max(0.45, min(1.0, 0.60 + 0.40 * (1.0 - (Double(p.z) + 5.5) / 11.0))))
-            return (node: node, rawPos: rawPos, depthScale: depthScale, depthOpacity: depthOpacity, z: p.z)
+            let nodeNormal = normalized(SIMD3<Float>(p.x * 0.12, p.y * 0.12, p.z * 0.12 + 1.0))
+            let highlight = normalized(lightVector + nodeNormal * 0.28)
+            let highlightVector = CGVector(
+                dx: CGFloat(max(-0.95, min(0.95, highlight.x))),
+                dy: CGFloat(max(-0.95, min(0.95, -highlight.y)))
+            )
+            let highlightOpacity = Double(max(0.22, min(0.58, 0.38 + 0.14 * highlight.z)))
+            return (node: node, rawPos: rawPos, depthScale: depthScale, highlightVector: highlightVector, highlightOpacity: highlightOpacity, z: p.z)
         }
 
         guard !rawItems.isEmpty else { return [] }
@@ -582,14 +603,15 @@ struct BrainGraphView: View {
                 node: item.node,
                 screenPos: pos,
                 depthScale: item.depthScale,
-                depthOpacity: item.depthOpacity,
+                highlightVector: item.highlightVector,
+                highlightOpacity: item.highlightOpacity,
                 z: item.z
             )
         }
 
         guard let focusNodeID,
               let focus = projected.first(where: { $0.id == focusNodeID }) else {
-            return projected
+            return applyGraphOffset(to: projected, offset: graphOffset)
         }
 
         let center = CGPoint(x: viewport.midX, y: viewport.midY)
@@ -598,19 +620,23 @@ struct BrainGraphView: View {
             height: center.y - focus.screenPos.y
         )
 
-        return projected.map { item in
-            ProjectedNode(
-                id: item.id,
-                node: item.node,
-                screenPos: CGPoint(
-                    x: item.screenPos.x + focusOffset.width,
-                    y: item.screenPos.y + focusOffset.height
-                ),
-                depthScale: item.depthScale,
-                depthOpacity: item.depthOpacity,
-                z: item.z
-            )
-        }
+        return applyGraphOffset(
+            to: projected.map { item in
+                ProjectedNode(
+                    id: item.id,
+                    node: item.node,
+                    screenPos: CGPoint(
+                        x: item.screenPos.x + focusOffset.width,
+                        y: item.screenPos.y + focusOffset.height
+                    ),
+                    depthScale: item.depthScale,
+                    highlightVector: item.highlightVector,
+                    highlightOpacity: item.highlightOpacity,
+                    z: item.z
+                )
+            },
+            offset: graphOffset
+        )
     }
 
     // Rotate SCNVector3 around Y then X axis
@@ -624,6 +650,92 @@ struct BrainGraphView: View {
         let z2   = pos.y * sinX + z1 * cosX
 
         return SIMD3<Float>(x1, y2, z2)
+    }
+
+    private func overheadLightVector() -> SIMD3<Float> {
+        // Fixed world/screen light from above, not from the camera axis.
+        normalized(SIMD3<Float>(-0.18, 1.00, 0.38))
+    }
+
+    private func applyGraphOffset(to projected: [ProjectedNode], offset: CGSize) -> [ProjectedNode] {
+        projected.map { item in
+            ProjectedNode(
+                id: item.id,
+                node: item.node,
+                screenPos: CGPoint(
+                    x: item.screenPos.x + offset.width,
+                    y: item.screenPos.y + offset.height
+                ),
+                depthScale: item.depthScale,
+                highlightVector: item.highlightVector,
+                highlightOpacity: item.highlightOpacity,
+                z: item.z
+            )
+        }
+    }
+
+    private func normalized(_ value: SIMD3<Float>) -> SIMD3<Float> {
+        let length = max(simd_length(value), 0.0001)
+        return value / length
+    }
+
+    private var rotateGesture: some Gesture {
+        DragGesture(minimumDistance: 5)
+            .updating($dragDelta) { v, s, _ in s = v.translation }
+            .onEnded { v in
+                let predictedX = v.predictedEndTranslation.width - v.translation.width
+                let predictedY = v.predictedEndTranslation.height - v.translation.height
+                userRotY -= (v.translation.width + predictedX * 0.28) * 0.004
+                userRotX  = max(-0.55, min(0.55,
+                    userRotX - (v.translation.height + predictedY * 0.22) * 0.003))
+            }
+    }
+
+    private func magnifyGesture(in size: CGSize) -> some Gesture {
+        MagnifyGesture()
+            .onChanged { value in
+                if pinchBaseZoom == nil {
+                    pinchBaseZoom = zoom
+                    pinchBaseOffset = graphOffset
+                }
+
+                let baseZoom = pinchBaseZoom ?? zoom
+                let nextZoom = max(0.45, min(3.4, baseZoom * value.magnification))
+                let scaleRatio = nextZoom / max(baseZoom, 0.0001)
+                let viewport = graphViewport(in: size)
+                let anchor = clamp(value.startLocation, to: viewport)
+
+                zoom = nextZoom
+                graphOffset = anchoredOffset(
+                    baseOffset: pinchBaseOffset,
+                    anchor: anchor,
+                    center: CGPoint(x: viewport.midX, y: viewport.midY),
+                    scaleRatio: scaleRatio
+                )
+            }
+            .onEnded { _ in
+                pinchBaseZoom = nil
+                pinchBaseOffset = graphOffset
+            }
+    }
+
+    private func anchoredOffset(
+        baseOffset: CGSize,
+        anchor: CGPoint,
+        center: CGPoint,
+        scaleRatio: CGFloat
+    ) -> CGSize {
+        CGSize(
+            width: (anchor.x - center.x) - scaleRatio * (anchor.x - center.x - baseOffset.width),
+            height: (anchor.y - center.y) - scaleRatio * (anchor.y - center.y - baseOffset.height)
+        )
+    }
+
+    private func clamp(_ point: CGPoint, to rect: CGRect) -> CGPoint {
+        CGPoint(
+            x: max(rect.minX, min(rect.maxX, point.x)),
+            y: max(rect.minY, min(rect.maxY, point.y))
+        )
     }
 
     private func graphViewport(in size: CGSize) -> CGRect {
@@ -648,18 +760,30 @@ struct BrainGraphView: View {
         CGFloat(max(10, min(24, 10 + Double(node.connectionCount) * 1.8)))
     }
 
+    private enum GraphLayer {
+        case background
+        case foreground
+    }
+
     private func drawConstellationEdges(
         ctx: inout GraphicsContext,
         projected: [ProjectedNode],
         idToPos: [String: ProjectedNode],
         connected: Set<String>,
-        selectedID: String?
+        selectedID: String?,
+        layer: GraphLayer
     ) {
         for edge in edges {
             guard let a = idToPos[edge.sourceID],
                   let b = idToPos[edge.targetID] else { continue }
             let isLit = selectedID.map { edge.sourceID == $0 || edge.targetID == $0 } ?? false
-            let baseAlpha: Double = selectedID == nil ? 0.20 : (isLit ? 0.72 : 0.035)
+            if selectedID != nil {
+                if layer == .background && isLit { continue }
+                if layer == .foreground && !isLit { continue }
+            } else if layer == .foreground {
+                continue
+            }
+            let baseAlpha: Double = selectedID == nil ? 0.20 : (isLit ? 0.82 : 0.030)
             let depthFade = Double((a.depthScale + b.depthScale) / 2.0)
             let edgeColor = isLit ? Color.vbLavender : Color.vbPink
             var path = Path()
@@ -676,8 +800,10 @@ struct BrainGraphView: View {
                        lineWidth: isLit ? 1.7 : 0.75)
         }
 
+        guard layer == .foreground || selectedID == nil else { return }
+
         for item in projected where !item.isDimmed(selID: selectedID, connected: connected) {
-            let shouldLabel = item.id == selectedID || connected.contains(item.id) || item.depthScale > 0.92
+            let shouldLabel = item.id == selectedID || connected.contains(item.id) || (selectedID == nil && item.depthScale > 0.92)
             guard shouldLabel else { continue }
             let r = baseRadius(item.node) * item.depthScale
             let title = String(item.node.title.prefix(item.id == selectedID ? 22 : 15))
@@ -740,6 +866,28 @@ private struct DeepSpaceGridView: View {
     }
 }
 
+private struct GraphGlassVeilView: View {
+    var body: some View {
+        Rectangle()
+            .fill(.ultraThinMaterial)
+            .overlay(Color.white.opacity(0.18))
+            .overlay(
+                LinearGradient(
+                    colors: [Color.white.opacity(0.28), Color.vbDeep.opacity(0.20), Color.vbPink.opacity(0.06)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .overlay(
+                Rectangle()
+                    .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                    .blur(radius: 1.2)
+            )
+            .opacity(0.82)
+            .ignoresSafeArea()
+    }
+}
+
 // MARK: – Node Dot
 
 private struct GirlyNodeView: View {
@@ -748,6 +896,8 @@ private struct GirlyNodeView: View {
     let isNeighbor: Bool
     let isDim: Bool
     let depthScale: CGFloat   // perspective size modifier (0.5 – 1.5)
+    let highlightVector: CGVector
+    let highlightOpacity: Double
     let orbitalPhase: TimeInterval
     let onTap:       (String) -> Void
     let onOpen:      (String) -> Void
@@ -766,20 +916,24 @@ private struct GirlyNodeView: View {
 
     private var pearlColors: [Color] {
         if isSelected {
-            return [.vbStardust, Color(red: 1, green: 0.79, blue: 0.89), .vbMagenta, .vbLavender,
-                    Color(red: 0.353, green: 0.176, blue: 0.639)]
+            return [.vbStardust, .vbLilac, .vbRose, .vbPink, .vbMagenta]
         }
         let t = Double(min(node.connectionCount, 12)) / 12.0
         if t > 0.6 {
-            return [.vbStardust, .vbRose, .vbOrchid, .vbPeriwinkle,
-                    Color(red: 0.353, green: 0.176, blue: 0.639)]
+            return [.vbStardust, .vbLilac, .vbRose, .vbOrchid, .vbMagenta]
         }
-        return [.vbStardust, Color(red: 0.82, green: 0.90, blue: 1.0), .vbPeriwinkle, .vbLavender,
-                Color(red: 0.247, green: 0.184, blue: 0.576)]
+        return [.vbStardust, .vbDeep, .vbPeriwinkle, .vbLilac, .vbLavender]
     }
 
     private var glowColor: Color {
         isSelected ? .vbMagenta : (isNeighbor ? .vbPeriwinkle : .vbLavender)
+    }
+
+    private var highlightCenter: UnitPoint {
+        UnitPoint(
+            x: max(0.18, min(0.82, 0.50 + highlightVector.dx * 0.28)),
+            y: max(0.18, min(0.82, 0.50 + highlightVector.dy * 0.28))
+        )
     }
 
     var body: some View {
@@ -828,18 +982,29 @@ private struct GirlyNodeView: View {
                 .fill(
                     RadialGradient(
                         colors: pearlColors,
-                        center: UnitPoint(x: 0.35, y: 0.32),
+                        center: highlightCenter,
                         startRadius: 0, endRadius: r
                     )
                 )
                 .frame(width: r * 2, height: r * 2)
 
-            // Specular
+            // Specular highlight follows the current 3D rotation/light vector.
             Circle()
-                .fill(Color.white.opacity(0.65))
-                .frame(width: r * 0.45, height: r * 0.45)
-                .offset(x: -r * 0.22, y: -r * 0.22)
-                .blur(radius: r * 0.12)
+                .fill(Color.white.opacity(highlightOpacity))
+                .frame(width: r * 0.40, height: r * 0.40)
+                .offset(x: r * highlightVector.dx * 0.44, y: r * highlightVector.dy * 0.44)
+                .blur(radius: r * 0.20)
+
+            Circle()
+                .stroke(Color.white.opacity(0.16), lineWidth: max(0.8, r * 0.04))
+                .frame(width: r * 2, height: r * 2)
+                .mask(
+                    LinearGradient(
+                        colors: [.clear, .white],
+                        startPoint: UnitPoint(x: 0.5 - highlightVector.dx * 0.35, y: 0.5 - highlightVector.dy * 0.35),
+                        endPoint: UnitPoint(x: 0.5 + highlightVector.dx * 0.35, y: 0.5 + highlightVector.dy * 0.35)
+                    )
+                )
 
             if node.connectionCount > 0 {
                 Text("\(min(node.connectionCount, 99))")
@@ -851,7 +1016,9 @@ private struct GirlyNodeView: View {
             }
         }
         .frame(width: touchSize, height: touchSize)
-        .opacity(isDim ? 0.14 : 1.0)
+        .saturation(isDim ? 0.36 : 1.0)
+        .brightness(isDim ? 0.06 : 0.0)
+        .blur(radius: isDim ? 0.9 : 0.0)
         .scaleEffect(isSelected ? 1.04 : 1.0)
         .animation(.easeInOut(duration: 0.28), value: isDim)
         .animation(.easeInOut(duration: 0.28), value: isSelected)
@@ -895,7 +1062,7 @@ private struct LongPressMenuView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            Color.black.opacity(0.52)
+            Color.vbFg1.opacity(0.22)
                 .ignoresSafeArea()
                 .onTapGesture { onDismiss() }
 
@@ -926,9 +1093,9 @@ private struct LongPressMenuView: View {
 
                     VStack(alignment: .leading, spacing: 3) {
                         Text(node.title)
-                            .font(.system(size: 22, weight: .medium, design: .serif))
+                            .font(.system(size: 22, weight: .bold, design: .rounded))
                             .foregroundColor(.vbFg1)
-                        Text("\(connectedCount) verbundene Notizen")
+                        Text("\(connectedCount) Synapsen")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(.vbFg3)
                     }
@@ -944,13 +1111,13 @@ private struct LongPressMenuView: View {
             }
             .background {
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(Color(red: 0.071, green: 0.031, blue: 0.149).opacity(0.95))
+                    .fill(Color.white.opacity(0.96))
                     .overlay(
                         RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .stroke(Color.vbLavender.opacity(0.18), lineWidth: 1)
+                            .stroke(Color.vbPink.opacity(0.18), lineWidth: 1)
                     )
             }
-            .shadow(color: .black.opacity(0.70), radius: 40, y: -8)
+            .shadow(color: .vbPink.opacity(0.18), radius: 34, y: -8)
             .padding(.horizontal, 12)
             .padding(.bottom, 34)
         }
@@ -987,22 +1154,22 @@ private struct LoadingUniverseView: View {
 
     private var headline: String {
         switch progress {
-        case 0..<0.20:  return "Dein Gedankenuniversum erwacht…"
-        case 0.20..<0.45: return "Sammle deine Sterne…"
-        case 0.45..<0.70: return "Verknüpfe deine Gedanken…"
-        case 0.70..<0.90: return "Baue dein Universum…"
+        case 0..<0.20:  return "Synaptic Vault startet…"
+        case 0.20..<0.45: return "Lade deine Nodes…"
+        case 0.45..<0.70: return "Ordne Synapsen…"
+        case 0.70..<0.90: return "Zeichne dein Netz…"
         default:          return "Fast da…"
         }
     }
 
     private var subline: String {
-        progress < 0.45 ? "Lade Vault …" : "Verbinde Notizen…"
+        progress < 0.45 ? "Vault wird gelesen …" : "Synapsen werden verbunden…"
     }
 
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [Color(red: 0.165, green: 0.082, blue: 0.314), .vbDeep, .vbVoid],
+                colors: [.vbVoid, .vbDeep, Color.white],
                 startPoint: .top, endPoint: .bottom
             )
             .ignoresSafeArea()
@@ -1012,7 +1179,7 @@ private struct LoadingUniverseView: View {
 
                 VStack(spacing: 28) {
                     Text(headline)
-                        .font(.system(size: 22, design: .serif))
+                        .font(.system(size: 22, weight: .semibold, design: .rounded))
                         .italic()
                         .foregroundColor(.vbFg2)
                         .multilineTextAlignment(.center)
@@ -1022,7 +1189,7 @@ private struct LoadingUniverseView: View {
                     VStack(spacing: 10) {
                         GeometryReader { geo in
                             ZStack(alignment: .leading) {
-                                Capsule().fill(Color.white.opacity(0.08))
+                                Capsule().fill(Color.vbDeep.opacity(0.88))
                                 Capsule()
                                     .fill(
                                         LinearGradient(

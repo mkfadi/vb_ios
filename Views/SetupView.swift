@@ -14,18 +14,18 @@ struct SetupView: View {
 
     var body: some View {
         ZStack {
-            // Dawn gradient
             LinearGradient(
-                colors: [Color(red: 0.165, green: 0.082, blue: 0.314), .vbDeep, .vbVoid],
-                startPoint: .top, endPoint: .bottom
+                colors: [.vbVoid, .vbDeep, Color.white],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
 
-            // Faint nebula bloom
             RadialGradient(
-                colors: [Color.vbLavender.opacity(0.12), .clear],
-                center: UnitPoint(x: 0.30, y: 0.18),
-                startRadius: 0, endRadius: 260
+                colors: [Color.vbPink.opacity(0.14), .clear],
+                center: UnitPoint(x: 0.24, y: 0.14),
+                startRadius: 0,
+                endRadius: 320
             )
             .ignoresSafeArea()
 
@@ -33,13 +33,12 @@ struct SetupView: View {
                 VStack(spacing: 0) {
                     // Hero
                     VStack(spacing: 16) {
-                        PearlView(size: 88)
-                        Text("Virtual Brain")
-                            .font(.system(size: 38, weight: .medium, design: .serif))
+                        PearlView(size: 112)
+                        Text("Synaptic Vault")
+                            .font(.system(size: 36, weight: .bold, design: .rounded))
                             .foregroundColor(.vbFg1)
-                            .tracking(-0.8)
-                        Text("Verbinde deinen Obsidian Vault mit GitHub.")
-                            .font(.system(size: 16, design: .serif))
+                        Text("Verbinde deinen Obsidian Vault mit deinem neuronalen Workspace.")
+                            .font(.system(size: 16, weight: .medium, design: .rounded))
                             .italic()
                             .foregroundColor(.vbFg2)
                             .multilineTextAlignment(.center)
@@ -51,7 +50,7 @@ struct SetupView: View {
                     // Input card
                     VStack(spacing: 18) {
                         inputField(
-                            label: "Personal Access Token",
+                            label: "GitHub Access Token",
                             icon: "key.fill",
                             placeholder: "ghp_xxxxxxxxxxxxxxxxxxxx",
                             text: $token,
@@ -91,22 +90,22 @@ struct SetupView: View {
                                     ProgressView()
                                         .tint(Color(red: 0.102, green: 0.039, blue: 0.227))
                                 } else {
-                                    Text("Verbinden und laden")
+                                    Text("Vault verbinden")
                                         .font(.system(size: 15, weight: .bold))
                                         .tracking(-0.3)
                                 }
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 15)
-                            .foregroundColor(Color(red: 0.102, green: 0.039, blue: 0.227))
+                            .foregroundColor(.white)
                             .background(
                                 canConnect
                                 ? LinearGradient(
-                                    colors: [.vbPink, .vbLavender, .vbPeriwinkle],
+                                    colors: [.vbMagenta, .vbPink, .vbRose],
                                     startPoint: .leading, endPoint: .trailing
                                   )
                                 : LinearGradient(
-                                    colors: [Color.vbFg4],
+                                    colors: [Color.vbFg4.opacity(0.45)],
                                     startPoint: .leading, endPoint: .trailing
                                   )
                             )
@@ -118,13 +117,13 @@ struct SetupView: View {
                         .padding(.top, 4)
                     }
                     .padding(22)
-                    .background(Color(red: 0.071, green: 0.031, blue: 0.149).opacity(0.60))
+                    .background(Color.white.opacity(0.90))
                     .cornerRadius(22)
                     .overlay(
                         RoundedRectangle(cornerRadius: 22)
                             .stroke(Color.vbLavender.opacity(0.18), lineWidth: 1)
                     )
-                    .shadow(color: .black.opacity(0.55), radius: 20, y: 6)
+                    .shadow(color: .vbPink.opacity(0.14), radius: 24, y: 8)
                     .padding(.horizontal, 24)
 
                     // Permission hint
@@ -171,7 +170,7 @@ struct SetupView: View {
             .font(.system(size: 13, design: .monospaced))
             .padding(14)
             .foregroundColor(.vbFg1)
-            .background(Color.white.opacity(0.05))
+            .background(Color.vbDeep.opacity(0.74))
             .cornerRadius(12)
             .autocorrectionDisabled()
             .textInputAutocapitalization(.never)

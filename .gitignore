@@ -1,2 +1,4 @@
 .DS_Store
 /vb_ios/
+xcuserdata/
+*.xcuserstate

@@ -60,6 +60,39 @@ private struct RepoInfo: Decodable {
     let default_branch: String
 }
 
+struct ChangeHistoryEntry: Identifiable, Sendable {
+    let id: String
+    let sha: String
+    let title: String
+    let author: String
+    let date: Date?
+    let device: String
+    let system: String?
+    let path: String?
+    let app: String?
+    let url: URL?
+}
+
+private struct CommitListItem: Decodable {
+    struct CommitInfo: Decodable {
+        struct CommitAuthor: Decodable {
+            let name: String?
+            let date: String?
+        }
+        let message: String
+        let author: CommitAuthor?
+    }
+
+    struct GitHubUser: Decodable {
+        let login: String?
+    }
+
+    let sha: String
+    let html_url: String?
+    let commit: CommitInfo
+    let author: GitHubUser?
+}
+
 // MARK: – Haupt-Service als Actor (thread-safe automatisch)
 
 actor GitHubService {
@@ -185,8 +218,37 @@ actor GitHubService {
         return Note(path: path, name: name, content: content, sha: resp.sha, links: links)
     }
 
+    // Laedt die GitHub-Commit-History fuer den Updates-Tab.
+    func fetchChangeHistory(limit: Int = 40) async throws -> [ChangeHistoryEntry] {
+        let cappedLimit = max(1, min(limit, 100))
+        let req = try request("/repos/\(owner)/\(repo)/commits?per_page=\(cappedLimit)")
+        let commits: [CommitListItem] = try await perform(req)
+        let formatter = ISO8601DateFormatter()
+
+        return commits.map { item in
+            let metadata = Self.metadata(from: item.commit.message)
+            let title = Self.title(from: item.commit.message)
+            let author = item.author?.login ?? item.commit.author?.name ?? "GitHub"
+            let date = item.commit.author?.date.flatMap { formatter.date(from: $0) }
+            let device = metadata["Device"] ?? "Extern / unbekannt"
+
+            return ChangeHistoryEntry(
+                id: item.sha,
+                sha: item.sha,
+                title: title,
+                author: author,
+                date: date,
+                device: device,
+                system: metadata["System"],
+                path: metadata["Path"],
+                app: metadata["App"],
+                url: item.html_url.flatMap(URL.init(string:))
+            )
+        }
+    }
+
     // Speichert eine geänderte Notiz als neuen Commit auf GitHub (PUT /contents)
-    func updateNote(_ note: Note, message: String = "Update via Virtual Brain") async throws -> String {
+    func updateNote(_ note: Note, message: String = "Update via Synaptic Vault") async throws -> String {
         let encoded = note.path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? note.path
         var req     = try request("/repos/\(owner)/\(repo)/contents/\(encoded)", method: "PUT")
 
@@ -201,6 +263,27 @@ actor GitHubService {
 
         let resp: UpdateResponse = try await perform(req)
         return resp.content.sha // Neuer SHA nach dem Commit
+    }
+
+    private static func title(from message: String) -> String {
+        message
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty } ?? "GitHub Änderung"
+    }
+
+    private static func metadata(from message: String) -> [String: String] {
+        var values: [String: String] = [:]
+        for line in message.components(separatedBy: .newlines) {
+            let parts = line.split(separator: ":", maxSplits: 1).map(String.init)
+            guard parts.count == 2 else { continue }
+            let key = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
+            let value = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
+            if ["Device", "System", "Path", "App"].contains(key), !value.isEmpty {
+                values[key] = value
+            }
+        }
+        return values
     }
 
     // Parst alle [[wikilinks]] und [[note|alias]]-Links aus Markdown-Text

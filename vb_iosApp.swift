@@ -20,8 +20,8 @@ struct vb_iosApp: App {
             ContentView()
                 // viewModel einmal hier injecten – alle Child-Views erben es automatisch
                 .environmentObject(viewModel)
-                // App läuft immer im Dark-Mode (passend zum Gehirn-Look)
-                .preferredColorScheme(.dark)
+                // Helles Brand-Theme passend zum Synaptic-Vault-Logo
+                .preferredColorScheme(.light)
         }
         // Wenn die App aus dem Hintergrund zurückkehrt und Notizen leer sind: neu laden
         .onChange(of: scenePhase) { _, phase in
@@ -37,25 +37,27 @@ struct vb_iosApp: App {
     // Setzt globale UIKit-Styles bevor die erste View erscheint
     private func configureGlobalAppearance() {
 
-        // Navigation Bar – dunkler Hintergrund, weißer Titel, lila Buttons
+        // Navigation Bar – warmes Weiß, dunkle Titel, pinke Aktionen
         let nav = UINavigationBarAppearance()
         nav.configureWithOpaqueBackground()
-        nav.backgroundColor = UIColor(red: 0.05, green: 0.02, blue: 0.12, alpha: 1)
+        nav.backgroundColor = UIColor(red: 1.00, green: 0.965, blue: 0.982, alpha: 1)
         nav.titleTextAttributes = [
-            .foregroundColor: UIColor.white,
+            .foregroundColor: UIColor(red: 0.18, green: 0.09, blue: 0.15, alpha: 1),
             .font: UIFont.systemFont(ofSize: 17, weight: .semibold)
         ]
-        nav.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
+        nav.largeTitleTextAttributes = [
+            .foregroundColor: UIColor(red: 0.18, green: 0.09, blue: 0.15, alpha: 1)
+        ]
         // Trennlinie entfernen
         nav.shadowColor = .clear
         UINavigationBar.appearance().standardAppearance   = nav
         UINavigationBar.appearance().scrollEdgeAppearance = nav
         UINavigationBar.appearance().compactAppearance    = nav
-        UINavigationBar.appearance().tintColor = UIColor.systemPurple
+        UINavigationBar.appearance().tintColor = UIColor(red: 0.94, green: 0.07, blue: 0.48, alpha: 1)
 
-        // Sheet-Hintergrund (für NoteView) ebenfalls dunkel
-        UITableView.appearance().backgroundColor = .black
+        // Sheet-Hintergrund (für NoteView) ebenfalls hell
+        UITableView.appearance().backgroundColor = UIColor(red: 1.00, green: 0.975, blue: 0.988, alpha: 1)
         UIView.appearance(whenContainedInInstancesOf: [UIAlertController.self])
-            .tintColor = UIColor.systemPurple
+            .tintColor = UIColor(red: 0.94, green: 0.07, blue: 0.48, alpha: 1)
     }
 }
