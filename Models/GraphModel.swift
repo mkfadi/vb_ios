@@ -27,11 +27,10 @@ class GraphModel: ObservableObject {
     @Published var loadingProgress: Double = 0.0
     @Published var errorMessage: String?
 
-    // Baut den Graphen aus einem Array von Notizen auf (Hintergrund-Task für schwere Berechnung)
+    // Baut den Graphen aus einem Array von Notizen auf
     func build(from notes: [Note]) async {
-        let (computedNodes, computedEdges) = await Task.detached(priority: .userInitiated) {
-            GraphModel.computeLayout(from: notes)
-        }.value
+        await Task.yield() // UI-Update-Chance vor der Berechnung
+        let (computedNodes, computedEdges) = GraphModel.computeLayout(from: notes)
         self.nodes = computedNodes
         self.edges = computedEdges
     }
@@ -40,9 +39,10 @@ class GraphModel: ObservableObject {
     nonisolated static func computeLayout(from notes: [Note]) -> ([GraphNode], [GraphEdge]) {
         guard !notes.isEmpty else { return ([], []) }
 
-        // Lookup: Note-Name (lowercase) → Array-Index
+        // Lookup: Note-Name (lowercase) → Array-Index (bei Namenskollision erste Datei gewinnt)
         let nameToIndex: [String: Int] = Dictionary(
-            uniqueKeysWithValues: notes.enumerated().map { ($1.name.lowercased(), $0) }
+            notes.enumerated().map { ($1.name.lowercased(), $0) },
+            uniquingKeysWith: { first, _ in first }
         )
 
         // Kanten aufbauen + Verbindungszähler pflegen

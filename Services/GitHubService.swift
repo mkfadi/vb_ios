@@ -69,11 +69,18 @@ actor GitHubService {
     private let repo:  String
     private let base = "https://api.github.com"
 
-    // Initialisierung: parst "owner/repo" in separate Teile
+    // Initialisierung: parst "owner/repo" oder volle GitHub-URL in separate Teile
     init(token: String, repoPath: String) throws {
-        let parts = repoPath
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .split(separator: "/", maxSplits: 1)
+        var normalized = repoPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let url = URL(string: normalized),
+           let host = url.host, host.contains("github.com") {
+            normalized = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            // .git-Suffix entfernen falls vorhanden
+            if normalized.hasSuffix(".git") {
+                normalized = String(normalized.dropLast(4))
+            }
+        }
+        let parts = normalized.split(separator: "/", maxSplits: 1)
         guard parts.count == 2, !parts[0].isEmpty, !parts[1].isEmpty else {
             throw GitHubError.invalidRepoFormat
         }

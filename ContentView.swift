@@ -1,6 +1,7 @@
 // ContentView.swift – Navigation-Root und App-weiter Zustand
 
 import SwiftUI
+import Combine
 
 // Zentraler App-Zustand: wird über .environmentObject() an alle Views weitergereicht
 @MainActor
@@ -11,6 +12,7 @@ class AppViewModel: ObservableObject {
     @Published var graphModel = GraphModel()
 
     private var githubService: GitHubService?
+    private var graphModelSink: AnyCancellable?
 
     init() {
         // Beim Start gespeicherte Credentials laden und Service initialisieren
@@ -20,6 +22,12 @@ class AppViewModel: ObservableObject {
             githubService    = svc
             isSetupComplete  = true
         }
+        subscribeToGraphModel()
+    }
+
+    private func subscribeToGraphModel() {
+        graphModelSink = graphModel.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
     }
 
     // Validiert Credentials, speichert sie und richtet den Service ein
@@ -79,12 +87,14 @@ class AppViewModel: ObservableObject {
         notes           = [:]
         graphModel      = GraphModel()
         isSetupComplete = false
+        subscribeToGraphModel()
     }
 }
 
 // Navigation-Root: zeigt Setup- oder Brain-View je nach Authentifizierungsstatus
+// viewModel kommt via .environmentObject() aus vb_iosApp – nicht selbst erstellen
 struct ContentView: View {
-    @StateObject private var viewModel = AppViewModel()
+    @EnvironmentObject private var viewModel: AppViewModel
 
     var body: some View {
         Group {
@@ -94,6 +104,5 @@ struct ContentView: View {
                 SetupView()
             }
         }
-        .environmentObject(viewModel)
     }
 }
