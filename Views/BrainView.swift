@@ -19,6 +19,10 @@ extension Color {
     static let vbOrchid     = Color(red: 0.940, green: 0.188, blue: 0.527)  // rich node
     static let vbPeriwinkle = Color(red: 1.000, green: 0.800, blue: 0.878)  // light node
     static let vbStardust   = Color.white
+    static let warmPeach    = Color(red: 1.000, green: 0.706, blue: 0.557)
+    static let softGray     = Color(red: 0.790, green: 0.777, blue: 0.812)
+    static let goldAccent   = Color(red: 1.000, green: 0.741, blue: 0.235)
+    static let blush        = Color(red: 1.000, green: 0.553, blue: 0.702)
     static let vbFg1        = Color(red: 0.120, green: 0.102, blue: 0.118)  // ink
     static let vbFg2        = Color(red: 0.286, green: 0.243, blue: 0.282)  // graphite
     static let vbFg3        = Color(red: 0.553, green: 0.459, blue: 0.529)  // muted mauve
@@ -105,6 +109,7 @@ struct BrainView: View {
     @State private var showNoteSheet   = false
     @State private var longPressNodeID: String?
     @State private var showLongPress   = false
+    @State private var showStatusIndicators = true
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -133,7 +138,8 @@ struct BrainView: View {
                     },
                     onBackgroundTapped: {
                         withAnimation(.easeInOut(duration: 0.28)) { selectedNoteID = nil }
-                    }
+                    },
+                    showStatusIndicators: showStatusIndicators
                 )
                 .ignoresSafeArea()
             }
@@ -154,6 +160,12 @@ struct BrainView: View {
                 noteCount: viewModel.graphModel.nodes.count,
                 linkCount: viewModel.graphModel.edges.count,
                 isLoading: viewModel.graphModel.isLoading,
+                showStatusIndicators: showStatusIndicators,
+                onToggleStatusIndicators: {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                        showStatusIndicators.toggle()
+                    }
+                },
                 onRefresh: { Task { await viewModel.loadNotes() } },
                 onLogout:  { viewModel.logout() }
             )
@@ -252,6 +264,8 @@ private struct ToolbarPillView: View {
     let noteCount: Int
     let linkCount: Int
     let isLoading: Bool
+    let showStatusIndicators: Bool
+    let onToggleStatusIndicators: () -> Void
     let onRefresh: () -> Void
     let onLogout:  () -> Void
 
@@ -270,6 +284,7 @@ private struct ToolbarPillView: View {
                     .monospacedDigit()
             }
             Spacer()
+            pillButton(icon: showStatusIndicators ? "circlebadge.fill" : "circlebadge", danger: false, action: onToggleStatusIndicators)
             pillButton(icon: "arrow.clockwise", danger: false, action: onRefresh)
                 .disabled(isLoading)
             pillButton(icon: "person.slash", danger: true, action: onLogout)
@@ -348,6 +363,10 @@ private struct NodeInsightPanelView: View {
                 insightButton(icon: "xmark", tint: .vbFg3, action: onClose)
             }
 
+            if node.frontmatter?.hasValues == true {
+                frontmatterChips
+            }
+
             if !connectedTitles.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 7) {
@@ -399,6 +418,34 @@ private struct NodeInsightPanelView: View {
         }
         .buttonStyle(.plain)
     }
+
+    private var frontmatterChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 7) {
+                if let type = node.frontmatter?.type {
+                    metadataChip(label: type, color: nodeTypeColor(type) ?? .vbLavender)
+                }
+                if let status = node.frontmatter?.status {
+                    metadataChip(label: status, color: statusColor(status))
+                }
+                if let updated = node.frontmatter?.updated {
+                    metadataChip(label: updated, color: .vbFg3)
+                }
+            }
+        }
+    }
+
+    private func metadataChip(label: String, color: Color) -> some View {
+        Text(label)
+            .font(.system(size: 10, weight: .bold))
+            .foregroundColor(.vbFg2)
+            .lineLimit(1)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(color.opacity(0.13))
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(color.opacity(0.34), lineWidth: 1))
+    }
 }
 
 // MARK: – 3D Graph
@@ -411,6 +458,7 @@ struct BrainGraphView: View {
     let onNodeOpened:      (String) -> Void
     let onNodeLongPressed: (String) -> Void
     let onBackgroundTapped: () -> Void
+    let showStatusIndicators: Bool
 
     @State private var zoom: CGFloat = 1.0
     @State private var graphOffset: CGSize = .zero
@@ -531,6 +579,7 @@ struct BrainGraphView: View {
             depthScale: item.depthScale,
             highlightVector: item.highlightVector,
             highlightOpacity: item.highlightOpacity,
+            showStatusIndicator: showStatusIndicators,
             orbitalPhase: phaseSeed(item.id),
             onTap: onNodeTapped,
             onOpen: onNodeOpened,
@@ -898,6 +947,7 @@ private struct GirlyNodeView: View {
     let depthScale: CGFloat   // perspective size modifier (0.5 – 1.5)
     let highlightVector: CGVector
     let highlightOpacity: Double
+    let showStatusIndicator: Bool
     let orbitalPhase: TimeInterval
     let onTap:       (String) -> Void
     let onOpen:      (String) -> Void
@@ -915,6 +965,9 @@ private struct GirlyNodeView: View {
     private var touchSize: CGFloat { max(52, r * 4.0) }
 
     private var pearlColors: [Color] {
+        if let typeColor {
+            return [.vbStardust, typeColor.opacity(0.42), typeColor.opacity(0.72), typeColor]
+        }
         if isSelected {
             return [.vbStardust, .vbLilac, .vbRose, .vbPink, .vbMagenta]
         }
@@ -926,7 +979,17 @@ private struct GirlyNodeView: View {
     }
 
     private var glowColor: Color {
-        isSelected ? .vbMagenta : (isNeighbor ? .vbPeriwinkle : .vbLavender)
+        if isSelected { return .vbMagenta }
+        if isNeighbor { return .vbPeriwinkle }
+        return typeColor ?? .vbLavender
+    }
+
+    private var typeColor: Color? {
+        nodeTypeColor(node.frontmatter?.type)
+    }
+
+    private var status: String? {
+        node.frontmatter?.status
     }
 
     private var highlightCenter: UnitPoint {
@@ -1014,6 +1077,11 @@ private struct GirlyNodeView: View {
                     .offset(x: r * 0.02, y: r * 0.04)
                     .opacity(isSelected || isNeighbor || node.connectionCount > 3 ? 1 : 0)
             }
+
+            if showStatusIndicator, let status {
+                StatusIndicatorView(status: status, radius: r)
+                    .offset(x: r * 0.78, y: -r * 0.78)
+            }
         }
         .frame(width: touchSize, height: touchSize)
         .saturation(isDim ? 0.36 : 1.0)
@@ -1048,6 +1116,51 @@ private struct GirlyNodeView: View {
             rippleScale   = 2.8
             rippleOpacity = 0.0
         }
+    }
+}
+
+private struct StatusIndicatorView: View {
+    let status: String
+    let radius: CGFloat
+
+    var body: some View {
+        Group {
+            if status == "planned" {
+                Circle()
+                    .stroke(statusColor(status).opacity(0.92), lineWidth: max(1.3, radius * 0.13))
+                    .background(Circle().fill(Color.white.opacity(0.82)))
+            } else {
+                Circle()
+                    .fill(statusColor(status))
+                    .overlay(Circle().stroke(Color.white.opacity(0.86), lineWidth: max(1, radius * 0.08)))
+            }
+        }
+        .frame(width: max(8, radius * 0.48), height: max(8, radius * 0.48))
+        .shadow(color: statusColor(status).opacity(0.24), radius: 4, y: 1)
+    }
+}
+
+private func nodeTypeColor(_ type: String?) -> Color? {
+    switch type?.lowercased() {
+    case "project": return .vbPink
+    case "concept": return .vbLavender
+    case "person": return .warmPeach
+    case "portfolio": return .blush
+    case "reference": return .softGray
+    case "experiment": return .vbMagenta
+    case "goal": return .goldAccent
+    default: return nil
+    }
+}
+
+private func statusColor(_ status: String?) -> Color {
+    switch status?.lowercased() {
+    case "wip": return .goldAccent
+    case "done": return .vbSuccess
+    case "archived": return .softGray
+    case "evergreen": return .vbLavender
+    case "planned": return .vbFg3
+    default: return .vbFg4
     }
 }
 

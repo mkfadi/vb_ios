@@ -246,6 +246,7 @@ struct NoteView: View {
         errorMsg = nil
         updated.content = editBuffer
         updated.links   = parseWikilinks(in: editBuffer)
+        updated.frontmatter = FrontmatterParser.parse(editBuffer)
         do {
             try await viewModel.updateNote(updated)
             note      = viewModel.notes[noteID]

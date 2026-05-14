@@ -10,6 +10,7 @@ struct GraphNode: Identifiable, Sendable {
     let title: String        // Anzeigename
     var position: SCNVector3 // Berechnete Position in der 3D-Szene
     var connectionCount: Int // Anzahl eingehender + ausgehender Links
+    var frontmatter: NoteFrontmatter?
 }
 
 // Eine gerichtete Kante – entspricht einem [[wikilink]]
@@ -123,7 +124,8 @@ class GraphModel: ObservableObject {
                 id: note.id,
                 title: note.name,
                 position: SCNVector3(p.x, p.y, p.z),
-                connectionCount: connectionCounts[i]
+                connectionCount: connectionCounts[i],
+                frontmatter: note.frontmatter
             )
         }
 

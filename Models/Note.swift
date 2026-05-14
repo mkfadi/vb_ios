@@ -22,6 +22,9 @@ struct Note: Identifiable, Sendable {
     /// Alle [[wikilinks]] die in dieser Notiz gefunden wurden (nur der Zielname)
     var links: [String]
 
+    /// Optionales YAML-Frontmatter am Anfang der Markdown-Datei
+    var frontmatter: NoteFrontmatter?
+
     // Extrahiert den Dateinamen aus einem Pfad und entfernt die .md-Endung
     static func extractName(from path: String) -> String {
         let filename = path.split(separator: "/").last.map(String.init) ?? path

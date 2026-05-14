@@ -214,8 +214,9 @@ actor GitHubService {
         let content = decodeBase64(resp.content ?? "")
         let name    = Note.extractName(from: path)
         let links   = parseWikilinks(in: content)
+        let frontmatter = FrontmatterParser.parse(content)
 
-        return Note(path: path, name: name, content: content, sha: resp.sha, links: links)
+        return Note(path: path, name: name, content: content, sha: resp.sha, links: links, frontmatter: frontmatter)
     }
 
     // Laedt die GitHub-Commit-History fuer den Updates-Tab.
