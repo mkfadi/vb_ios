@@ -116,18 +116,7 @@ class AppViewModel: ObservableObject {
             notes[path] = existing
             return path
         } catch GitHubError.notFound {
-            let content = """
-            ---
-            updated: \(date)
-            status: wip
-            type: reference
-            ---
-
-            # \(date)
-
-            #daily
-
-            """
+            let content = Self.dailyTemplate(for: date)
             _ = try await svc.createNote(path: path, content: content, message: captureCommitMessage(title: date, path: path))
             await loadNotes()
             await loadHistory()
@@ -143,6 +132,38 @@ class AppViewModel: ObservableObject {
         updated.sha  = newSHA
         notes[note.id] = updated
         await loadHistory()
+    }
+
+    func renameNote(path: String, to newTitle: String) async throws -> String {
+        guard let svc = githubService else { throw GitHubError.unauthorized }
+        let cleanTitle = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanTitle.isEmpty else { throw GitHubError.encodingError }
+        let note = try await noteForMutation(path: path)
+        let newPath = uniqueRenamedPath(for: note.path, title: cleanTitle)
+        let newContent = contentRenamed(note.content, title: cleanTitle)
+        let oldName = note.name
+        let newName = Note.extractName(from: newPath)
+
+        _ = try await svc.renameNote(note, to: newPath, newContent: newContent, message: renameCommitMessage(from: note.path, to: newPath, title: cleanTitle))
+        try await updateWikilinksForRename(from: oldName, to: newName, excluding: [note.path, newPath], service: svc)
+        notes.removeValue(forKey: note.path)
+        await loadNotes()
+        await loadHistory()
+        return newPath
+    }
+
+    func deleteNote(path: String) async throws {
+        guard let svc = githubService else { throw GitHubError.unauthorized }
+        let note = try await noteForMutation(path: path)
+        try await svc.deleteNote(path: note.path, sha: note.sha, message: deleteCommitMessage(for: note))
+        notes.removeValue(forKey: note.path)
+        await loadNotes()
+        await loadHistory()
+    }
+
+    private func noteForMutation(path: String) async throws -> Note {
+        if let note = notes[path] { return note }
+        return try await fetchNote(path: path)
     }
 
     // Holt eine einzelne Notiz frisch von GitHub (wenn nicht im Cache)
@@ -187,6 +208,52 @@ class AppViewModel: ObservableObject {
         """
     }
 
+    private func renameCommitMessage(from oldPath: String, to newPath: String, title: String) -> String {
+        """
+        rename: \(title)
+
+        Device: \(Self.deviceName)
+        System: \(Self.systemName)
+        Path: \(oldPath) -> \(newPath)
+        App: Synaptic Vault
+        """
+    }
+
+    private func deleteCommitMessage(for note: Note) -> String {
+        """
+        delete: \(note.name)
+
+        Device: \(Self.deviceName)
+        System: \(Self.systemName)
+        Path: \(note.path)
+        App: Synaptic Vault
+        """
+    }
+
+    private func renameLinksCommitMessage(from oldName: String, to newName: String, path: String) -> String {
+        """
+        rename links: \(oldName) -> \(newName)
+
+        Device: \(Self.deviceName)
+        System: \(Self.systemName)
+        Path: \(path)
+        App: Synaptic Vault
+        """
+    }
+
+    private static func dailyTemplate(for date: String) -> String {
+        """
+        # \(date)
+
+        #daily
+
+        ---
+
+        ##
+
+        """
+    }
+
     private func noteContent(title: String, body: String, type: String) -> String {
         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanBody = body.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -215,6 +282,56 @@ class AppViewModel: ObservableObject {
             index += 1
         }
         return candidate
+    }
+
+    private func uniqueRenamedPath(for oldPath: String, title: String) -> String {
+        let slug = Self.slugify(title)
+        let folder = oldPath.split(separator: "/").dropLast().joined(separator: "/")
+        let prefix = folder.isEmpty ? "" : "\(folder)/"
+        let existing = Set(notes.keys.filter { $0 != oldPath }.map { $0.lowercased() })
+        var candidate = "\(prefix)\(slug).md"
+        var index = 2
+        while existing.contains(candidate.lowercased()) {
+            candidate = "\(prefix)\(slug)-\(index).md"
+            index += 1
+        }
+        return candidate
+    }
+
+    private func contentRenamed(_ content: String, title: String) -> String {
+        var lines = content.components(separatedBy: .newlines)
+        if let firstHeading = lines.firstIndex(where: { $0.trimmingCharacters(in: .whitespaces).hasPrefix("# ") }) {
+            lines[firstHeading] = "# \(title)"
+            return lines.joined(separator: "\n")
+        }
+        return "# \(title)\n\n\(content)"
+    }
+
+    private func updateWikilinksForRename(from oldName: String, to newName: String, excluding excludedPaths: Set<String>, service: GitHubService) async throws {
+        for var linkedNote in notes.values where !excludedPaths.contains(linkedNote.path) {
+            let updatedContent = contentUpdatingWikilinks(linkedNote.content, from: oldName, to: newName)
+            guard updatedContent != linkedNote.content else { continue }
+            linkedNote.content = updatedContent
+            _ = try await service.updateNote(linkedNote, message: renameLinksCommitMessage(from: oldName, to: newName, path: linkedNote.path))
+        }
+    }
+
+    private func contentUpdatingWikilinks(_ content: String, from oldName: String, to newName: String) -> String {
+        guard let regex = try? NSRegularExpression(pattern: #"\[\[([^\[\]\n]+?)\]\]"#) else { return content }
+        let range = NSRange(content.startIndex..., in: content)
+        var output = content
+
+        for match in regex.matches(in: content, range: range).reversed() {
+            guard let fullRange = Range(match.range(at: 0), in: output),
+                  let innerRange = Range(match.range(at: 1), in: content) else { continue }
+            let inner = String(content[innerRange])
+            let parts = inner.split(separator: "|", maxSplits: 1, omittingEmptySubsequences: false)
+            guard let target = parts.first, target.trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare(oldName) == .orderedSame else { continue }
+            let alias = parts.count > 1 ? "|\(parts[1])" : ""
+            output.replaceSubrange(fullRange, with: "[[\(newName)\(alias)]]")
+        }
+
+        return output
     }
 
     private func sanitizedFolder(_ folder: String?) -> String {
@@ -284,17 +401,27 @@ struct ContentView: View {
 }
 
 private struct MainTabView: View {
+    @State private var selectedTab = 0
+
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
+            TodayView()
+                .tabItem {
+                    Label("Heute", systemImage: "sun.max.fill")
+                }
+                .tag(0)
+
             BrainView()
                 .tabItem {
                     Label("Brain", systemImage: "brain.head.profile")
                 }
+                .tag(1)
 
             HistoryView()
                 .tabItem {
                     Label("Updates", systemImage: "clock.arrow.circlepath")
                 }
+                .tag(2)
         }
         .tint(.vbPink)
     }

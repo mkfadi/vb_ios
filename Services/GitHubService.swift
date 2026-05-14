@@ -55,6 +55,13 @@ private struct CreateRequest: Encodable {
     let content: String
 }
 
+private struct DeleteRequest: Encodable {
+    let message: String
+    let sha: String
+}
+
+private struct DeleteResponse: Decodable {}
+
 private struct UpdateResponse: Decodable {
     struct FileInfo: Decodable { let sha: String }
     let content: FileInfo
@@ -286,6 +293,24 @@ actor GitHubService {
 
         let resp: UpdateResponse = try await perform(req)
         return resp.content.sha // Neuer SHA nach dem Commit
+    }
+
+    // Loescht eine Markdown-Notiz als GitHub Commit (DELETE /contents mit SHA)
+    func deleteNote(path: String, sha: String, message: String) async throws {
+        let encoded = path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? path
+        var req = try request("/repos/\(owner)/\(repo)/contents/\(encoded)", method: "DELETE")
+        let body = DeleteRequest(message: message, sha: sha)
+        req.httpBody = try JSONEncoder().encode(body)
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let _: DeleteResponse = try await perform(req)
+    }
+
+    // GitHub hat keinen direkten Rename-Endpunkt: neue Datei anlegen, alte Datei entfernen.
+    func renameNote(_ note: Note, to newPath: String, newContent: String, message: String) async throws -> String {
+        let newSHA = try await createNote(path: newPath, content: newContent, message: message)
+        try await deleteNote(path: note.path, sha: note.sha, message: message)
+        return newSHA
     }
 
     private static func title(from message: String) -> String {

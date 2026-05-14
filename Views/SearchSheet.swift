@@ -11,8 +11,8 @@ struct SearchSheet: View {
 
     @State private var query = ""
     @State private var debouncedQuery = ""
-    @State private var selectedPathFilters: Set<PathFilter> = []
-    @State private var selectedStatuses: Set<String> = []
+    @State private var selectedPathFilter: PathFilter?
+    @State private var selectedStatus: String?
     @State private var debounceTask: Task<Void, Never>?
 
     private var index: [SearchIndexItem] {
@@ -127,21 +127,21 @@ struct SearchSheet: View {
             HStack(spacing: 8) {
                 FilterChip(
                     title: "Alle",
-                    isSelected: selectedPathFilters.isEmpty && selectedStatuses.isEmpty,
+                    isSelected: selectedPathFilter == nil && selectedStatus == nil,
                     tint: .vbPink
                 ) {
-                    selectedPathFilters.removeAll()
-                    selectedStatuses.removeAll()
+                    selectedPathFilter = nil
+                    selectedStatus = nil
                 }
 
                 ForEach(PathFilter.allCases) { filter in
-                    FilterChip(title: filter.title, isSelected: selectedPathFilters.contains(filter), tint: .vbPink) {
+                    FilterChip(title: filter.title, isSelected: selectedPathFilter == filter, tint: .vbPink) {
                         toggle(filter)
                     }
                 }
 
                 ForEach(["wip", "done", "evergreen"], id: \.self) { status in
-                    FilterChip(title: status, isSelected: selectedStatuses.contains(status), tint: statusColor(status)) {
+                    FilterChip(title: status, isSelected: selectedStatus == status, tint: statusColor(status)) {
                         toggleStatus(status)
                     }
                 }
@@ -168,27 +168,29 @@ struct SearchSheet: View {
     }
 
     private func toggle(_ filter: PathFilter) {
-        if selectedPathFilters.contains(filter) {
-            selectedPathFilters.remove(filter)
+        if selectedPathFilter == filter {
+            selectedPathFilter = nil
         } else {
-            selectedPathFilters.insert(filter)
+            selectedPathFilter = filter
+            selectedStatus = nil
         }
     }
 
     private func toggleStatus(_ status: String) {
-        if selectedStatuses.contains(status) {
-            selectedStatuses.remove(status)
+        if selectedStatus == status {
+            selectedStatus = nil
         } else {
-            selectedStatuses.insert(status)
+            selectedStatus = status
+            selectedPathFilter = nil
         }
     }
 
     private func matchesFilters(_ item: SearchIndexItem) -> Bool {
-        for filter in selectedPathFilters where !item.pathLower.hasPrefix(filter.prefix) {
+        if let selectedPathFilter, !item.pathLower.hasPrefix(selectedPathFilter.prefix) {
             return false
         }
-        if !selectedStatuses.isEmpty {
-            guard let status = item.status, selectedStatuses.contains(status) else { return false }
+        if let selectedStatus {
+            guard item.status == selectedStatus else { return false }
         }
         return true
     }

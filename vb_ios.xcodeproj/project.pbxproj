@@ -20,6 +20,8 @@
 		B00100000000000000000011 /* FrontmatterParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00200000000000000000011 /* FrontmatterParser.swift */; };
 		B00100000000000000000012 /* CaptureSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00200000000000000000012 /* CaptureSheet.swift */; };
 		B00100000000000000000013 /* SearchSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00200000000000000000013 /* SearchSheet.swift */; };
+		B00100000000000000000014 /* MarkdownSectionParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00200000000000000000014 /* MarkdownSectionParser.swift */; };
+		B00100000000000000000015 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00200000000000000000015 /* TodayView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -36,6 +38,8 @@
 		B00200000000000000000011 /* FrontmatterParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrontmatterParser.swift; sourceTree = "<group>"; };
 		B00200000000000000000012 /* CaptureSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSheet.swift; sourceTree = "<group>"; };
 		B00200000000000000000013 /* SearchSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchSheet.swift; sourceTree = "<group>"; };
+		B00200000000000000000014 /* MarkdownSectionParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownSectionParser.swift; sourceTree = "<group>"; };
+		B00200000000000000000015 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
 		B00300000000000000000001 /* vb_ios.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = vb_ios.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -86,6 +90,7 @@
 				B00200000000000000000005 /* KeychainService.swift */,
 				B00200000000000000000006 /* GitHubService.swift */,
 				B00200000000000000000011 /* FrontmatterParser.swift */,
+				B00200000000000000000014 /* MarkdownSectionParser.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -98,6 +103,7 @@
 				B00200000000000000000009 /* SetupView.swift */,
 				B00200000000000000000012 /* CaptureSheet.swift */,
 				B00200000000000000000013 /* SearchSheet.swift */,
+				B00200000000000000000015 /* TodayView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -183,6 +189,8 @@
 				B00100000000000000000011 /* FrontmatterParser.swift in Sources */,
 				B00100000000000000000012 /* CaptureSheet.swift in Sources */,
 				B00100000000000000000013 /* SearchSheet.swift in Sources */,
+				B00100000000000000000014 /* MarkdownSectionParser.swift in Sources */,
+				B00100000000000000000015 /* TodayView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
