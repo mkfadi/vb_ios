@@ -193,7 +193,7 @@ private struct BrainIllustration: View {
                 .offset(x: 70, y: 56)
 
             Ellipse()
-                .strokeBorder(Color(red: 0.84, green: 0.80, blue: 0.74).opacity(0.5), lineWidth: 1)
+                .stroke(Color(red: 0.84, green: 0.80, blue: 0.74).opacity(0.5), lineWidth: 1)
                 .frame(width: 88, height: 56)
                 .offset(x: 70, y: 56)
 
@@ -229,50 +229,56 @@ private struct BrainIllustration: View {
             .clipShape(CerebrumShape())
 
             // Major sulci lines
-            Canvas { ctx, size in
-                let w = size.width, h = size.height
-                let sulci: [(CGFloat, CGFloat, CGFloat, CGFloat, CGFloat, CGFloat, CGFloat, CGFloat)] = [
-                    // Central sulcus (front/parietal divide)
-                    (0.36, 0.08, 0.40, 0.70, 0.34, 0.28, 0.38, 0.50),
-                    // Lateral sulcus (horizontal temporal)
-                    (0.10, 0.55, 0.66, 0.50, 0.28, 0.58, 0.50, 0.50),
-                    // Superior frontal
-                    (0.18, 0.10, 0.20, 0.50, 0.16, 0.28, 0.19, 0.40),
-                ]
-                for (sx, sy, ex, ey, c1x, c1y, c2x, c2y) in sulci {
+            SulciView()
+                .clipShape(CerebrumShape())
+
+            // Cerebrum outline
+            CerebrumShape()
+                .stroke(Color(red: 0.84, green: 0.80, blue: 0.74).opacity(0.65), lineWidth: 1.5)
+        }
+    }
+}
+
+// MARK: – Sulci (drawn as Shape to avoid tuple issues in Canvas)
+
+private struct SulciView: View {
+    private struct Sulcus {
+        let sx, sy, ex, ey, c1x, c1y, c2x, c2y: CGFloat
+    }
+    private let sulci: [Sulcus] = [
+        Sulcus(sx: 0.36, sy: 0.08, ex: 0.40, ey: 0.70, c1x: 0.34, c1y: 0.28, c2x: 0.38, c2y: 0.50),
+        Sulcus(sx: 0.10, sy: 0.55, ex: 0.66, ey: 0.50, c1x: 0.28, c1y: 0.58, c2x: 0.50, c2y: 0.50),
+        Sulcus(sx: 0.18, sy: 0.10, ex: 0.20, ey: 0.50, c1x: 0.16, c1y: 0.28, c2x: 0.19, c2y: 0.40),
+    ]
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            Canvas { ctx, _ in
+                for s in sulci {
                     var path = Path()
-                    path.move(to: CGPoint(x: sx * w, y: sy * h))
+                    path.move(to: CGPoint(x: s.sx * w, y: s.sy * h))
                     path.addCurve(
-                        to: CGPoint(x: ex * w, y: ey * h),
-                        control1: CGPoint(x: c1x * w, y: c1y * h),
-                        control2: CGPoint(x: c2x * w, y: c2y * h)
+                        to: CGPoint(x: s.ex * w, y: s.ey * h),
+                        control1: CGPoint(x: s.c1x * w, y: s.c1y * h),
+                        control2: CGPoint(x: s.c2x * w, y: s.c2y * h)
                     )
                     ctx.stroke(path, with: .color(Color(red: 0.78, green: 0.72, blue: 0.66).opacity(0.40)), lineWidth: 1.0)
                 }
             }
-            .clipShape(CerebrumShape())
-
-            // Cerebrum outline
-            CerebrumShape()
-                .strokeBorder(Color(red: 0.84, green: 0.80, blue: 0.74).opacity(0.65), lineWidth: 1.5)
         }
     }
 }
 
 // MARK: – Cerebrum Shape (lateral view)
 
-private struct CerebrumShape: Shape, InsettableShape {
-    var insetAmount: CGFloat = 0
-
-    func inset(by amount: CGFloat) -> CerebrumShape {
-        CerebrumShape(insetAmount: insetAmount + amount)
-    }
-
+private struct CerebrumShape: Shape {
     func path(in rect: CGRect) -> Path {
-        let w = rect.width  - insetAmount * 2
-        let h = rect.height - insetAmount * 2
-        let ox = rect.minX  + insetAmount
-        let oy = rect.minY  + insetAmount
+        let w = rect.width
+        let h = rect.height
+        let ox = rect.minX
+        let oy = rect.minY
 
         func pt(_ fx: CGFloat, _ fy: CGFloat) -> CGPoint {
             CGPoint(x: ox + fx * w, y: oy + fy * h)
