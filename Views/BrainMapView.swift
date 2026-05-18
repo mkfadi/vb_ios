@@ -460,7 +460,7 @@ private struct ModuleNotesSheet: View {
                     Text(note.name)
                         .font(.system(size: 16, weight: .semibold, design: .rounded))
                         .foregroundColor(.vbFg1)
-                    if let type = note.frontmatter["type"] {
+                    if let type = note.frontmatter?.type {
                         Text(type)
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(.vbFg3)
