@@ -134,6 +134,7 @@ private struct StarfieldView: View {
 
 struct BrainView: View {
     @EnvironmentObject var viewModel: AppViewModel
+    @State private var showMap         = true   // true = Brain Map, false = Graph
     @State private var selectedNoteID: String?
     @State private var showNoteSheet   = false
     @State private var longPressNodeID: String?
@@ -143,27 +144,32 @@ struct BrainView: View {
         ZStack(alignment: .top) {
             CosmicBackgroundView()
 
-            if viewModel.graphModel.nodes.isEmpty && !viewModel.graphModel.isLoading {
-                emptyState
+            if showMap {
+                BrainMapView()
+                    .ignoresSafeArea()
             } else {
-                BrainGraphView(
-                    nodes: viewModel.graphModel.nodes,
-                    edges: viewModel.graphModel.edges,
-                    selectedNodeID: selectedNoteID,
-                    onNodeTapped: { id in
-                        selectedNoteID = id
-                        showNoteSheet  = true
-                    },
-                    onNodeLongPressed: { id in
-                        longPressNodeID = id
-                        selectedNoteID  = id
-                        withAnimation(.spring(duration: 0.35)) { showLongPress = true }
-                    },
-                    onBackgroundTapped: {
-                        withAnimation(.easeInOut(duration: 0.28)) { selectedNoteID = nil }
-                    }
-                )
-                .ignoresSafeArea()
+                if viewModel.graphModel.nodes.isEmpty && !viewModel.graphModel.isLoading {
+                    emptyState
+                } else {
+                    BrainGraphView(
+                        nodes: viewModel.graphModel.nodes,
+                        edges: viewModel.graphModel.edges,
+                        selectedNodeID: selectedNoteID,
+                        onNodeTapped: { id in
+                            selectedNoteID = id
+                            showNoteSheet  = true
+                        },
+                        onNodeLongPressed: { id in
+                            longPressNodeID = id
+                            selectedNoteID  = id
+                            withAnimation(.spring(duration: 0.35)) { showLongPress = true }
+                        },
+                        onBackgroundTapped: {
+                            withAnimation(.easeInOut(duration: 0.28)) { selectedNoteID = nil }
+                        }
+                    )
+                    .ignoresSafeArea()
+                }
             }
 
             if viewModel.graphModel.isLoading {
@@ -182,13 +188,15 @@ struct BrainView: View {
                 noteCount: viewModel.graphModel.nodes.count,
                 linkCount: viewModel.graphModel.edges.count,
                 isLoading: viewModel.graphModel.isLoading,
+                showMap: showMap,
                 onRefresh: { Task { await viewModel.loadNotes() } },
+                onToggleView: { withAnimation(.spring(duration: 0.38)) { showMap.toggle() } },
                 onLogout:  { viewModel.logout() }
             )
             .zIndex(20)
         }
         .overlay {
-            if showLongPress,
+            if !showMap, showLongPress,
                let nodeID = longPressNodeID,
                let node   = viewModel.graphModel.nodes.first(where: { $0.id == nodeID }) {
                 let degree = viewModel.graphModel.edges.filter {
@@ -245,7 +253,9 @@ private struct ToolbarPillView: View {
     let noteCount: Int
     let linkCount: Int
     let isLoading: Bool
+    let showMap: Bool
     let onRefresh: () -> Void
+    let onToggleView: () -> Void
     let onLogout:  () -> Void
 
     var body: some View {
@@ -260,6 +270,8 @@ private struct ToolbarPillView: View {
                     .monospacedDigit()
             }
             Spacer()
+            pillButton(icon: showMap ? "point.3.connected.trianglepath.dotted" : "brain.head.profile",
+                       danger: false, action: onToggleView)
             pillButton(icon: "arrow.clockwise", danger: false, action: onRefresh)
                 .disabled(isLoading)
             pillButton(icon: "person.slash", danger: true, action: onLogout)
